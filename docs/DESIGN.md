@@ -201,7 +201,7 @@ Estructura del repo (monorepo con npm workspaces):
 
 ```
 clear-accounts/
-├── apps/mobile/          # Expo app (próximo paso)
+├── apps/mobile/          # app Expo
 ├── packages/core/        # dominio: repartos, balances, simplificación, registro personal (+ tests)
 ├── supabase/
 │   ├── migrations/       # esquema, RLS, RPCs, vistas, categorías
@@ -235,10 +235,15 @@ El MVP es para familia y amigos, pero estas decisiones se toman ahora porque cam
 | **Observabilidad** | `activity_log` por grupo. | Sentry (errores), analytics con opt-in (PostHog), métricas de negocio. |
 | **Calidad** | Tests de dominio y de base (RLS incluida) en CI. | Tests E2E de la app (Maestro). |
 
-## 9. Próximos pasos
+## 9. Estado y próximos pasos
 
-1. Crear la app Expo (`apps/mobile`): navegación, login con Supabase y pantallas vacías.
-2. Pantalla "Agregar gasto" usando `packages/core` para repartos.
-3. Grupos, invitaciones por link y balances.
-4. "Mis gastos" y reportes por categoría.
-5. Crear el proyecto Supabase (dev), aplicar migraciones y publicar una build interna (TestFlight / Play Internal Testing) para familia y amigos.
+**Hecho**
+- Dominio (`packages/core`), esquema + RLS + RPCs (`supabase/`), con tests.
+- App Expo con login, grupos, invitaciones por link, miembros sin cuenta, carga de gastos (4 tipos de reparto), balances con "cómo saldar" y registro de pagos, "Mis gastos" con reporte mensual por categoría, tema claro/oscuro.
+
+**Próximos pasos**
+1. Crear el proyecto Supabase (dev) y probar la app con usuarios reales vía Expo Go.
+2. Editar y borrar gastos (la RPC ya soporta edición).
+3. Categorías propias del usuario y recategorización privada desde la UI.
+4. Login con Google / Apple.
+5. Build interna con EAS (TestFlight / Play Internal Testing) para familia y amigos.
