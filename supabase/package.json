@@ -1,0 +1,13 @@
+{
+  "name": "@clear-accounts/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "vitest": "^2.1.8"
+  }
+}

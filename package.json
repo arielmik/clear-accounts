@@ -1,0 +1,12 @@
+{
+  "name": "clear-accounts",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "supabase"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

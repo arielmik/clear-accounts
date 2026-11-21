@@ -1,6 +1,19 @@
-# Clear Accounts — Documento de diseño (v0.1)
+# Clear Accounts — Documento de diseño (v0.2)
 
-> Estado: borrador inicial para discusión. Fecha: 2026-11-21.
+> Estado: decisiones del MVP tomadas (ver §0). Fecha: 2026-11-21.
+
+## 0. Decisiones tomadas
+
+| # | Tema | Decisión |
+|---|---|---|
+| 1 | Stack | React Native + Expo (TypeScript) y Supabase (Postgres). |
+| 2 | Moneda | Una moneda por grupo en el MVP. El modelo ya guarda moneda por gasto y los balances se calculan por moneda, así que multi-moneda (v2) no requiere migrar datos. |
+| 3 | Categorías | Ambas: categorías del sistema (con subcategorías) + categorías propias de cada usuario. |
+| 4 | Privacidad | La recategorización personal de un gasto de grupo es **privada**: el resto del grupo no la ve. |
+| 5 | Offline | Fuera del MVP. El modelo queda preparado (UUIDs generados en el cliente, `updated_at` + `version`). |
+| 6 | Alcance | MVP para familia y amigos; arquitectura lista para producto comercial público (ver §9). |
+| 7 | Gasto personal | Se modela como gasto en el **grupo personal** del usuario (un grupo oculto de un solo miembro, creado al registrarse). Un único modelo, una única política de seguridad. |
+| 8 | Redondeo | Método del resto mayor: los centavos sobrantes van a quien tenga mayor fracción (empate: orden de la lista). Determinístico y justo. |
 
 ## 1. Visión
 
@@ -36,7 +49,7 @@ Así los reportes por categoría reflejan consumo real, y el flujo de caja (lo q
 
 ## 3. Modelo de datos
 
-Principio: **una sola fuente de verdad**. Un gasto personal es simplemente un gasto sin grupo, con un único participante. El "registro personal" no es una copia de los gastos de grupo: es una **vista** sobre todas las partes (`expense_shares`) del usuario. Cero duplicación, cero desincronización: si alguien edita el gasto en el grupo, tu registro personal se actualiza solo.
+Principio: **una sola fuente de verdad**. Un gasto personal es simplemente un gasto en el *grupo personal* del usuario (grupo de tipo `personal`, un solo miembro, invisible para el resto). El "registro personal" no es una copia de los gastos de grupo: es una **vista** sobre todas las partes (`expense_shares`) del usuario. Cero duplicación, cero desincronización: si alguien edita el gasto en el grupo, tu registro personal se actualiza solo.
 
 ```mermaid
 erDiagram
@@ -47,7 +60,8 @@ erDiagram
     EXPENSE ||--|{ EXPENSE_PAYER : "pagado por"
     EXPENSE ||--|{ EXPENSE_SHARE : "repartido en"
     CATEGORY ||--o{ EXPENSE : "clasifica"
-    CATEGORY ||--o{ EXPENSE_SHARE : "override personal"
+    USER ||--o{ SHARE_CATEGORY_OVERRIDE : "recategoriza (privado)"
+    EXPENSE ||--o{ SHARE_CATEGORY_OVERRIDE : ""
     GROUP ||--o{ SETTLEMENT : "registra"
 
     USER {
@@ -59,7 +73,7 @@ erDiagram
     GROUP {
       uuid id
       string name
-      string type "casa | viaje | pareja | otro"
+      string kind "personal | home | trip | couple | other"
       string currency
       bool simplify_debts
     }
@@ -71,7 +85,7 @@ erDiagram
     }
     EXPENSE {
       uuid id
-      uuid group_id "null = gasto personal"
+      uuid group_id "grupo personal = gasto personal"
       string description
       bigint amount_minor "centavos"
       string currency
@@ -90,7 +104,12 @@ erDiagram
       uuid expense_id
       uuid member_id
       bigint amount_minor
-      uuid personal_category_id "opcional"
+      bigint split_value "bps o unidades"
+    }
+    SHARE_CATEGORY_OVERRIDE {
+      uuid user_id
+      uuid expense_id
+      uuid category_id
     }
     SETTLEMENT {
       uuid id
@@ -103,6 +122,7 @@ erDiagram
     CATEGORY {
       uuid id
       uuid owner_id "null = categoría del sistema"
+      string system_key "clave i18n"
       string name
       uuid parent_id
       string icon
@@ -111,11 +131,12 @@ erDiagram
 
 Detalles relevantes:
 
-- **Montos en enteros (centavos)**. Nunca `float` para plata. Los redondeos de un reparto se asignan de forma determinística (ej.: el centavo sobrante va al pagador) para que `Σ partes = monto`.
-- **Invariantes**: `Σ payers = amount` y `Σ shares = amount` en todo gasto.
-- **`personal_category_id`**: el grupo cargó "Supermercado", pero vos querés verlo como "Hogar". Cada usuario puede recategorizar *su parte* sin tocar el gasto del grupo.
+- **Montos en enteros (centavos)**. Nunca `float` para plata. Los redondeos se asignan con el método del resto mayor para que `Σ partes = monto` siempre.
+- **Invariantes**: `Σ payers = amount` y `Σ shares = amount` en todo gasto, y todos los participantes pertenecen al grupo del gasto. Se validan en el cliente (`packages/core`) **y** en la base (constraint triggers diferidos). La base es la autoridad final.
+- **`share_category_overrides`**: el grupo cargó "Supermercado", pero vos querés verlo como "Hogar". Cada usuario recategoriza *su parte* sin tocar el gasto del grupo. Está en una tabla aparte con RLS de solo-dueño: nadie más la ve.
+- **Escrituras atómicas**: un gasto se guarda con la RPC `save_expense(payload)` (gasto + pagadores + partes en una transacción).
 - **Miembros sin cuenta**: se puede agregar a alguien al grupo solo con nombre/email y que se una después; sus partes quedan vinculadas al `member_id`.
-- **Borrado lógico** (`deleted_at`) + historial de cambios: en gastos compartidos, "¿quién cambió esto?" es una pregunta que va a aparecer.
+- **Borrado lógico** (`deleted_at`) + `activity_log` automático: en gastos compartidos, "¿quién cambió esto?" es una pregunta que va a aparecer.
 
 ## 4. Lógica de negocio
 
@@ -137,22 +158,26 @@ Vista del usuario = todas sus `expense_shares` (de grupos + personales), con:
 
 ## 5. Funcionalidades por fase
 
-**MVP (v1)**
+**MVP (v1) — familia y amigos**
 - Registro / login (email + Google/Apple).
 - Grupos: crear, invitar por link, miembros sin cuenta.
 - Gastos de grupo con los 4 tipos de reparto, un pagador.
 - Gastos personales.
 - Balances, simplificación y registro de liquidaciones.
-- Registro personal con categorías y reporte mensual por categoría.
+- Registro personal con categorías (sistema + propias) y reporte mensual por categoría.
+- Recategorización privada de tu parte.
 - Una moneda por grupo.
+- Español (con i18n preparado desde el día 1).
 
-**v2**
-- Múltiples pagadores en un gasto.
+**v2 — beta pública**
+- Múltiples pagadores en la UI (el modelo y la base ya lo soportan).
 - Multi-moneda con tipo de cambio por gasto (clave para viajes).
 - Gastos recurrentes (alquiler, servicios).
 - Foto del ticket / adjuntos.
 - Presupuestos por categoría y alertas.
 - Modo offline con sincronización.
+- Inglés, borrado de cuenta y exportación de datos (requisitos de tiendas y privacidad).
+- Plan gratuito / premium.
 - Notificaciones push ("Ana agregó un gasto en Casa").
 
 **v3 (para soñar en grande)**
@@ -172,13 +197,15 @@ Vista del usuario = todas sus `expense_shares` (de grupos + personales), con:
 
 Alternativa evaluada: Flutter + Firebase. Descartada como default porque Firestore (NoSQL) complica los balances y reportes agregados, que son el corazón de la app.
 
-Estructura de repo sugerida (monorepo):
+Estructura del repo (monorepo con npm workspaces):
 
 ```
 clear-accounts/
-├── apps/mobile/          # Expo app
-├── packages/core/        # dominio: splits, balances, simplificación (+ tests)
-├── supabase/             # migraciones SQL, RLS, funciones
+├── apps/mobile/          # Expo app (próximo paso)
+├── packages/core/        # dominio: repartos, balances, simplificación, registro personal (+ tests)
+├── supabase/
+│   ├── migrations/       # esquema, RLS, RPCs, vistas, categorías
+│   └── tests/            # tests de la base con PGlite (sin Docker)
 └── docs/
 ```
 
@@ -192,11 +219,26 @@ clear-accounts/
 6. **Reportes**: torta por categoría, barras por mes.
 7. **Perfil / categorías / ajustes**.
 
-## 8. Preguntas abiertas
+## 8. Preparación para producto comercial
 
-1. **Stack**: ¿OK con React Native + Supabase, o hay preferencia/experiencia previa con otro?
-2. **Moneda**: ¿multi-moneda entra en el MVP (viajes) o alcanza con una moneda por grupo?
-3. **Categorías**: ¿lista fija del sistema, personalizables, o ambas? ¿Subcategorías?
-4. **Privacidad**: ¿los demás miembros del grupo pueden ver tu recategorización personal? (Propuesta: no.)
-5. **Offline**: ¿es requisito desde el día 1?
-6. **Alcance**: ¿uso personal / familia y amigos, o producto público (implica legales, App Store, monetización)?
+El MVP es para familia y amigos, pero estas decisiones se toman ahora porque cambiarlas después cuesta caro:
+
+| Área | Ya en el diseño | Pendiente antes del lanzamiento público |
+|---|---|---|
+| **Seguridad** | RLS en todas las tablas; escrituras críticas vía RPC; invariantes en la base. | Auditoría de seguridad, rate limiting en RPCs, captcha en registro. |
+| **Escalabilidad** | Postgres con índices por grupo/fecha/miembro; vistas agregadas. | Vistas materializadas o tablas de balance si los grupos crecen mucho. |
+| **i18n** | `system_key` en categorías; `locale`, `timezone` y moneda por perfil; montos sin formato en la base. | Traducciones (en, pt), formatos regionales. |
+| **Offline / sync** | UUIDs generables en el cliente, `updated_at`, `version`, borrado lógico. | Motor de sync (PowerSync / WatermelonDB) y resolución de conflictos. |
+| **Ambientes** | Migraciones versionadas en el repo. | Proyectos Supabase separados: dev / staging / prod. CI/CD con EAS. |
+| **Privacidad y legales** | Datos personales mínimos; recategorización privada. | Términos, política de privacidad, **borrado de cuenta** (obligatorio en App Store/Play: anonimizar el miembro y conservar los gastos del grupo), exportación de datos. |
+| **Monetización** | — | Tabla de suscripciones/planes + `entitlements`, chequeados en RPC (no en el cliente). Compras in-app con RevenueCat. |
+| **Observabilidad** | `activity_log` por grupo. | Sentry (errores), analytics con opt-in (PostHog), métricas de negocio. |
+| **Calidad** | Tests de dominio y de base (RLS incluida) en CI. | Tests E2E de la app (Maestro). |
+
+## 9. Próximos pasos
+
+1. Crear la app Expo (`apps/mobile`): navegación, login con Supabase y pantallas vacías.
+2. Pantalla "Agregar gasto" usando `packages/core` para repartos.
+3. Grupos, invitaciones por link y balances.
+4. "Mis gastos" y reportes por categoría.
+5. Crear el proyecto Supabase (dev), aplicar migraciones y publicar una build interna (TestFlight / Play Internal Testing) para familia y amigos.
