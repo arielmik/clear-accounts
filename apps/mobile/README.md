@@ -7,9 +7,11 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
 ### 1. Crear el proyecto Supabase (una sola vez)
 
 1. Crear un proyecto gratuito en [supabase.com](https://supabase.com).
-2. En **SQL Editor**, ejecutar en orden los archivos de `supabase/migrations/`:
+2. En **SQL Editor**, pegar el **contenido completo** de cada archivo de `supabase/migrations/` y ejecutarlo, en este orden (una consulta por archivo):
    - `20261121000000_init.sql`
    - `20261121000100_seed_categories.sql`
+
+   Ojo: hay que pegar el SQL de adentro del archivo, no la ruta: el editor no lee archivos del repo.
 3. En **Authentication → Sign In / Providers → Email**, desactivar **Confirm email** (para el MVP de familia y amigos; se reactiva antes del lanzamiento público).
 4. Copiar la **Project URL** y la **anon / publishable key** desde **Project Settings → API**.
 
