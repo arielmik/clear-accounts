@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
@@ -137,6 +138,9 @@ export default function ProfileScreen() {
         />
       </Card>
       <Button title={t.auth.signOut} variant="secondary" onPress={() => supabase.auth.signOut()} />
+      <Text style={{ color: theme.muted, textAlign: 'center', fontSize: 12 }}>
+        {t.appName} v{Constants.expoConfig?.version ?? '?'}
+      </Text>
     </Screen>
   );
 }
