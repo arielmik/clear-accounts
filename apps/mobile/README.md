@@ -10,6 +10,7 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
 2. En **SQL Editor**, pegar el **contenido completo** de cada archivo de `supabase/migrations/` y ejecutarlo, en este orden (una consulta por archivo):
    - `20261121000000_init.sql`
    - `20261121000100_seed_categories.sql`
+   - `20261122000000_grants.sql`
 
    Ojo: hay que pegar el SQL de adentro del archivo, no la ruta: el editor no lee archivos del repo.
 3. En **Authentication → Sign In / Providers → Email**, desactivar **Confirm email** (para el MVP de familia y amigos; se reactiva antes del lanzamiento público).

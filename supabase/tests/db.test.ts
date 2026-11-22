@@ -41,10 +41,7 @@ beforeAll(async () => {
   for (const f of readdirSync(migrationsDir).sort()) {
     await db.exec(readFileSync(join(migrationsDir, f), 'utf8'));
   }
-  await db.exec(`
-    grant usage on schema public to authenticated;
-    grant select, insert, update, delete on all tables in schema public to authenticated;
-  `);
+  // Sin grants manuales: los permisos tienen que venir de las migraciones.
   await db.query(
     `insert into auth.users (id, email, raw_user_meta_data) values
      ($1, 'ana@example.com', '{"display_name":"Ana"}'),

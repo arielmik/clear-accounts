@@ -12,3 +12,7 @@ $$;
 create role authenticated nologin;
 create role anon nologin;
 grant usage on schema auth to authenticated;
+
+-- Peor caso: nada es accesible salvo lo que las migraciones otorgan explícitamente
+-- (así se comportan los proyectos nuevos de Supabase con las tablas, y lo extendemos a funciones).
+alter default privileges in schema public revoke execute on functions from public;
