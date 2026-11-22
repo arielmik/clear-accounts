@@ -99,7 +99,8 @@ export const es = {
     addImage: 'Agregar imagen',
     removeImage: 'Quitar imagen',
     registerPayment: 'Registrar otro pago',
-    paymentRow: (from: string, to: string) => `${from} le pagó a ${to}`,
+    paymentRow: (from: string, to: string, fromIsMe = false, toIsMe = false) =>
+      fromIsMe ? `Le pagaste a ${to}` : toIsMe ? `${from} te pagó` : `${from} le pagó a ${to}`,
     confirmDeletePayment: (text: string, amount: string) => `¿Eliminar el pago "${text}" por ${amount}?`,
     guestName: 'Nombre',
     invite: 'Invitar por link',

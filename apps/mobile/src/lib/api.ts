@@ -1,3 +1,4 @@
+import { isoDate } from './dates';
 import { supabase } from './supabase';
 import type {
   BalanceRow,
@@ -40,7 +41,7 @@ export async function fetchCategories(): Promise<Category[]> {
 }
 
 const EXPENSE_FIELDS =
-  'id, group_id, description, amount_minor, currency, spent_at, category_id, split_type, created_by, expense_payers(member_id, amount_minor), expense_shares(member_id, amount_minor, split_value)';
+  'id, group_id, description, amount_minor, currency, spent_at, category_id, split_type, created_by, created_at, expense_payers(member_id, amount_minor), expense_shares(member_id, amount_minor, split_value)';
 
 /** PostgREST devuelve bigint como string: normalizamos a number. */
 function normalizeExpense(e: ExpenseRow): ExpenseRow {
@@ -140,6 +141,8 @@ export async function createSettlement(input: {
       to_member_id: input.toMemberId,
       amount_minor: input.amountMinor,
       currency: input.currency,
+      // Fecha local del dispositivo (el servidor está en UTC: de noche sería "mañana").
+      paid_at: isoDate(),
       created_by: input.userId,
     }),
   );

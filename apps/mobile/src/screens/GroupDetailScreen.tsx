@@ -8,6 +8,7 @@ import { Money } from '../components/Money';
 import { space, useTheme } from '../components/theme';
 import { Button, Card, Chip, ChipRow, Empty, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
+import { groupActivity } from '../lib/activity';
 import { addGuestMember, createInvite, removeMember, renameMember, setGroupImage } from '../lib/api';
 import { useUserId } from '../lib/auth';
 import { confirm } from '../lib/confirm';
@@ -24,9 +25,7 @@ import {
   useRefreshAll,
   useSettlements,
 } from '../lib/queries';
-import type { ExpenseRow, Member, SettlementRow } from '../lib/types';
-
-type ActivityItem = { kind: 'expense'; date: string; created: string; e: ExpenseRow } | { kind: 'payment'; date: string; created: string; p: SettlementRow };
+import type { Member, SettlementRow } from '../lib/types';
 
 type Section = 'expenses' | 'balances' | 'members';
 
@@ -66,14 +65,11 @@ export default function GroupDetailScreen() {
     return map;
   }, [balances.data]);
 
-  // Gastos y pagos juntos, del más nuevo al más viejo.
-  const activity = useMemo<ActivityItem[]>(() => {
-    const items: ActivityItem[] = [
-      ...(expenses.data ?? []).map((e) => ({ kind: 'expense' as const, date: e.spent_at, created: '', e })),
-      ...(settlements.data ?? []).map((p) => ({ kind: 'payment' as const, date: p.paid_at, created: p.created_at, p })),
-    ];
-    return items.sort((a, b) => b.date.localeCompare(a.date) || b.created.localeCompare(a.created));
-  }, [expenses.data, settlements.data]);
+  // Gastos y pagos intercalados según cuándo ocurrieron.
+  const activity = useMemo(
+    () => groupActivity(expenses.data ?? [], settlements.data ?? []),
+    [expenses.data, settlements.data],
+  );
 
   const transfers = useMemo(() => {
     const byCurrency: Record<string, Record<string, number>> = {};
@@ -123,7 +119,7 @@ export default function GroupDetailScreen() {
   }
 
   async function removePayment(p: SettlementRow) {
-    const text = t.groups.paymentRow(nameOf(p.from_member_id), nameOf(p.to_member_id));
+    const text = t.groups.paymentRow(nameOf(p.from_member_id), nameOf(p.to_member_id), p.from_member_id === me?.id, p.to_member_id === me?.id);
     if (!(await confirm(t.groups.confirmDeletePayment(text, formatMoney(p.amount_minor, p.currency)), t.expense.delete, t.common.cancel))) return;
     deletePayment.mutate(p.id);
   }
@@ -203,7 +199,7 @@ export default function GroupDetailScreen() {
                     <Row style={{ justifyContent: 'space-between' }}>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15 }}>
-                          💸 {t.groups.paymentRow(nameOf(p.from_member_id), nameOf(p.to_member_id))}
+                          💸 {t.groups.paymentRow(nameOf(p.from_member_id), nameOf(p.to_member_id), p.from_member_id === me?.id, p.to_member_id === me?.id)}
                         </Text>
                         <Text style={{ color: theme.muted, fontSize: 13 }}>{shortDate(p.paid_at)}</Text>
                       </View>

@@ -361,3 +361,19 @@ describe('imágenes', () => {
     expect(r.rows.map((x) => x.tablename)).toEqual(['expenses', 'group_members', 'groups', 'profiles', 'settlements']);
   });
 });
+
+describe('corrección de fechas de pagos', () => {
+  it('un pago de las 23 hs de Argentina queda con la fecha local', async () => {
+    const id = (
+      await db.query<{ id: string }>(
+        `insert into settlements (group_id, from_member_id, to_member_id, amount_minor, currency, paid_at, created_by, created_at)
+         values ($1, $2, $3, 100, 'ARS', '2026-11-23', $4, '2026-11-23T02:00:00Z') returning id`,
+        [tripId, anaM, betoM, ANA],
+      )
+    ).rows[0]!.id;
+    const dir = join(migrationsDir, '20261122000300_fix_payment_dates.sql');
+    await db.exec(readFileSync(dir, 'utf8'));
+    const r = await db.query<{ paid_at: string }>(`select paid_at::text from settlements where id = $1`, [id]);
+    expect(r.rows[0]!.paid_at).toBe('2026-11-22');
+  });
+});

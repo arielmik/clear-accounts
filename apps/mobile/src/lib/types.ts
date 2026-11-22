@@ -39,6 +39,7 @@ export interface ExpenseRow {
   category_id: string | null;
   split_type: SplitType;
   created_by: string;
+  created_at: string;
   expense_payers: { member_id: string; amount_minor: number }[];
   expense_shares: { member_id: string; amount_minor: number; split_value: number | null }[];
 }

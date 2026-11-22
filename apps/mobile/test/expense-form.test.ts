@@ -103,6 +103,7 @@ describe('formStateFromExpense', () => {
       description: 'Algo',
       amount_minor: 100000,
       split_type: splitType,
+      created_at: '2026-11-20T12:00:00Z',
       expense_payers: [{ member_id: 'ana', amount_minor: 100000 }],
       expense_shares: shares.map((s) => ({ ...s })),
     };
