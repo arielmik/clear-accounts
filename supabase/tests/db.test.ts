@@ -377,3 +377,23 @@ describe('corrección de fechas de pagos', () => {
     expect(r.rows[0]!.paid_at).toBe('2026-11-22');
   });
 });
+
+describe('endurecimiento', () => {
+  it('sin sesión (anon) no se puede ejecutar ninguna función', async () => {
+    await expect(
+      db.transaction(async (tx) => {
+        await tx.query('set local role anon');
+        await tx.query('select is_group_member($1)', [tripId]);
+      }),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it('con sesión, las RPC de la app siguen funcionando', async () => {
+    const id = await as(ANA, async (tx) =>
+      (await tx.query<{ id: string }>(`select create_group('Post hardening', 'other', 'ARS') as id`)).rows[0]!.id,
+    );
+    expect(id).toBeTruthy();
+    const cats = await as(ANA, async (tx) => (await tx.query('select count(*)::int as n from categories')).rows[0]);
+    expect(cats).toEqual({ n: 33 });
+  });
+});

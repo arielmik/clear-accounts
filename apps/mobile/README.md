@@ -14,6 +14,7 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
    - `20261122000100_members_profile.sql`
    - `20261122000200_images_realtime.sql` (crea el bucket privado `images` y activa el tiempo real)
    - `20261122000300_fix_payment_dates.sql`
+   - `20261122000400_hardening.sql`
 
    Ojo: hay que pegar el SQL de adentro del archivo, no la ruta: el editor no lee archivos del repo.
 3. En **Authentication → Sign In / Providers → Email**, desactivar **Confirm email** (para el MVP de familia y amigos; se reactiva antes del lanzamiento público).
