@@ -53,6 +53,7 @@ export interface LedgerRow {
   consumed_minor: number;
   paid_minor: number;
   category_id: string | null;
+  created_at: string;
 }
 
 export interface BalanceRow {
@@ -73,4 +74,10 @@ export interface SaveExpensePayload {
   split_type: SplitType;
   payers: { member_id: string; amount_minor: number }[];
   shares: { member_id: string; amount_minor: number; split_value: number | null }[];
+}
+
+export interface Profile {
+  id: string;
+  display_name: string;
+  default_currency: string;
 }

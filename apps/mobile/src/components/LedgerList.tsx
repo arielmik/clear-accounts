@@ -1,30 +1,39 @@
-import { Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, Text, View } from 'react-native';
 import { t } from '../i18n';
 import { categoryEmoji, categoryIndex } from '../lib/categories';
 import { shortDate } from '../lib/dates';
+import { useTabBase } from '../lib/nav';
 import { useCategories } from '../lib/queries';
 import type { LedgerRow } from '../lib/types';
 import { Money } from './Money';
 import { space, useTheme } from './theme';
-import { Card, Row } from './ui';
+import { Card } from './ui';
 
 export function LedgerList({ rows }: { rows: readonly LedgerRow[] }) {
   const theme = useTheme();
   const categories = useCategories();
   const index = categoryIndex(categories.data ?? []);
+  const base = useTabBase();
   if (rows.length === 0) return null;
   return (
     <Card style={{ paddingVertical: space.sm }}>
       {rows.map((r, i) => {
         const cat = r.category_id ? index.byId.get(r.category_id) : undefined;
         return (
-          <Row
+          <Pressable
             key={r.expense_id}
-            style={{
+            accessibilityRole="button"
+            onPress={() => router.push(`${base}/expense/${r.expense_id}`)}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: space.sm,
               paddingVertical: space.sm,
               borderTopWidth: i === 0 ? 0 : 1,
               borderTopColor: theme.border,
-            }}
+              opacity: pressed ? 0.6 : 1,
+            })}
           >
             <Text style={{ fontSize: 22, width: 32 }}>{categoryEmoji(index.rootOf(r.category_id))}</Text>
             <View style={{ flex: 1 }}>
@@ -37,7 +46,7 @@ export function LedgerList({ rows }: { rows: readonly LedgerRow[] }) {
               </Text>
             </View>
             <Money minor={r.consumed_minor} currency={r.currency} />
-          </Row>
+          </Pressable>
         );
       })}
     </Card>

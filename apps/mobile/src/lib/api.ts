@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { BalanceRow, Category, ExpenseRow, Group, GroupKind, LedgerRow, SaveExpensePayload } from './types';
+import type { BalanceRow, Category, ExpenseRow, Group, GroupKind, LedgerRow, Profile, SaveExpensePayload } from './types';
 
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T {
   if (result.error) throw new Error(result.error.message);
@@ -28,18 +28,45 @@ export async function fetchCategories(): Promise<Category[]> {
   ) as Category[];
 }
 
+const EXPENSE_FIELDS =
+  'id, group_id, description, amount_minor, currency, spent_at, category_id, split_type, created_by, expense_payers(member_id, amount_minor), expense_shares(member_id, amount_minor, split_value)';
+
+/** PostgREST devuelve bigint como string: normalizamos a number. */
+function normalizeExpense(e: ExpenseRow): ExpenseRow {
+  return {
+    ...e,
+    amount_minor: Number(e.amount_minor),
+    expense_payers: e.expense_payers.map((p) => ({ ...p, amount_minor: Number(p.amount_minor) })),
+    expense_shares: e.expense_shares.map((x) => ({
+      ...x,
+      amount_minor: Number(x.amount_minor),
+      split_value: x.split_value === null ? null : Number(x.split_value),
+    })),
+  };
+}
+
+export async function fetchExpense(id: string): Promise<ExpenseRow> {
+  const row = unwrap(
+    await supabase.from('expenses').select(EXPENSE_FIELDS).eq('id', id).is('deleted_at', null).single(),
+  ) as ExpenseRow;
+  return normalizeExpense(row);
+}
+
+export async function deleteExpense(id: string): Promise<void> {
+  unwrap(await supabase.from('expenses').update({ deleted_at: new Date().toISOString() }).eq('id', id));
+}
+
 export async function fetchGroupExpenses(groupId: string): Promise<ExpenseRow[]> {
-  return unwrap(
+  const rows = unwrap(
     await supabase
       .from('expenses')
-      .select(
-        'id, group_id, description, amount_minor, currency, spent_at, category_id, split_type, created_by, expense_payers(member_id, amount_minor), expense_shares(member_id, amount_minor, split_value)',
-      )
+      .select(EXPENSE_FIELDS)
       .eq('group_id', groupId)
       .is('deleted_at', null)
       .order('spent_at', { ascending: false })
       .order('created_at', { ascending: false }),
   ) as ExpenseRow[];
+  return rows.map(normalizeExpense);
 }
 
 export async function fetchBalances(groupId?: string): Promise<BalanceRow[]> {
@@ -57,7 +84,9 @@ export async function fetchLedger(from: string, to: string): Promise<LedgerRow[]
       .select('*')
       .gte('spent_at', from)
       .lte('spent_at', to)
-      .order('spent_at', { ascending: false }),
+      // Más nuevo arriba: por fecha del gasto y, dentro del mismo día, por momento de carga.
+      .order('spent_at', { ascending: false })
+      .order('created_at', { ascending: false }),
   ) as LedgerRow[];
   return rows.map((r) => ({ ...r, consumed_minor: Number(r.consumed_minor), paid_minor: Number(r.paid_minor) }));
 }
@@ -103,4 +132,32 @@ export async function createSettlement(input: {
       created_by: input.userId,
     }),
   );
+}
+
+export async function renameMember(memberId: string, displayName: string): Promise<void> {
+  unwrap(await supabase.from('group_members').update({ display_name: displayName }).eq('id', memberId));
+}
+
+/** Baja lógica. La base rechaza la baja si el miembro tiene saldo pendiente. */
+export async function removeMember(memberId: string): Promise<void> {
+  unwrap(await supabase.from('group_members').update({ left_at: new Date().toISOString() }).eq('id', memberId));
+}
+
+export async function fetchProfile(userId: string): Promise<Profile> {
+  return unwrap(
+    await supabase.from('profiles').select('id, display_name, default_currency').eq('id', userId).single(),
+  ) as Profile;
+}
+
+export async function updateMyName(displayName: string): Promise<void> {
+  unwrap(await supabase.rpc('update_my_profile', { p_display_name: displayName }));
+  // También en los metadatos de la sesión, para que quede consistente.
+  const { error } = await supabase.auth.updateUser({ data: { display_name: displayName } });
+  if (error) throw new Error(error.message);
+}
+
+/** Supabase envía un email de confirmación; el cambio se aplica al confirmarlo. */
+export async function updateMyEmail(email: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ email });
+  if (error) throw new Error(error.message);
 }

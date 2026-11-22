@@ -83,3 +83,33 @@ describe('buildExpensePayload', () => {
     expect(buildExpensePayload({ ...base, amountText: '10', description: '  ' }, trip).ok).toBe(false);
   });
 });
+
+import { formStateFromExpense } from '../src/lib/expense-form';
+import type { ExpenseRow } from '../src/lib/types';
+
+describe('formStateFromExpense', () => {
+  const base = { group_id: 'g1', currency: 'ARS', spent_at: '2026-11-20', category_id: 'c1', created_by: 'u-ana' };
+
+  it.each([
+    ['equal', [{ member_id: 'ana', amount_minor: 50000, split_value: null }, { member_id: 'vos', amount_minor: 50000, split_value: null }]],
+    ['exact', [{ member_id: 'ana', amount_minor: 70050, split_value: null }, { member_id: 'beto', amount_minor: 29950, split_value: null }]],
+    ['percent', [{ member_id: 'ana', amount_minor: 33330, split_value: 3333 }, { member_id: 'beto', amount_minor: 66670, split_value: 6667 }]],
+    ['shares', [{ member_id: 'ana', amount_minor: 66667, split_value: 2 }, { member_id: 'beto', amount_minor: 33333, split_value: 1 }]],
+  ] as const)('editar sin cambios reproduce el mismo gasto (%s)', (splitType, shares) => {
+    const expense: ExpenseRow = {
+      ...base,
+      id: 'e1',
+      description: 'Algo',
+      amount_minor: 100000,
+      split_type: splitType,
+      expense_payers: [{ member_id: 'ana', amount_minor: 100000 }],
+      expense_shares: shares.map((s) => ({ ...s })),
+    };
+    const r = buildExpensePayload(formStateFromExpense(expense, trip), trip);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.payload.id).toBe('e1');
+    expect(r.payload.split_type).toBe(splitType);
+    expect(r.payload.shares.map((s) => [s.member_id, s.amount_minor])).toEqual(shares.map((s) => [s.member_id, s.amount_minor]));
+  });
+});

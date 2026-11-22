@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text } from 'react-native';
-import { useTheme } from '../../components/theme';
-import { Button, Chip, ChipRow, Input, Label, Screen } from '../../components/ui';
-import { t } from '../../i18n';
-import { createGroup } from '../../lib/api';
-import { useInvalidateGroups } from '../../lib/queries';
+import { useTheme } from '../components/theme';
+import { Button, Chip, ChipRow, Input, Label, Screen } from '../components/ui';
+import { t } from '../i18n';
+import { createGroup } from '../lib/api';
+import { useInvalidateGroups } from '../lib/queries';
 
 const KINDS = ['home', 'trip', 'couple', 'other'] as const;
 const CURRENCIES = ['ARS', 'USD', 'EUR', 'BRL', 'UYU', 'CLP'];
@@ -25,7 +25,8 @@ export default function NewGroup() {
     try {
       const id = await createGroup(name.trim(), kind, currency);
       await invalidate();
-      router.replace(`/group/${id}`);
+      router.back();
+      router.push(`/groups/${id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setSaving(false);

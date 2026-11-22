@@ -11,6 +11,7 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
    - `20261121000000_init.sql`
    - `20261121000100_seed_categories.sql`
    - `20261122000000_grants.sql`
+   - `20261122000100_members_profile.sql`
 
    Ojo: hay que pegar el SQL de adentro del archivo, no la ruta: el editor no lee archivos del repo.
 3. En **Authentication → Sign In / Providers → Email**, desactivar **Confirm email** (para el MVP de familia y amigos; se reactiva antes del lanzamiento público).
@@ -30,17 +31,21 @@ Escanear el QR con **Expo Go** (iOS / Android). También corre en el navegador c
 
 ```
 src/
-├── app/                 # rutas (Expo Router)
-│   ├── _layout.tsx      # providers + rutas protegidas por sesión
+├── app/                      # rutas (Expo Router)
+│   ├── _layout.tsx           # providers + rutas protegidas por sesión
 │   ├── login.tsx
-│   ├── (tabs)/          # Inicio, Grupos, Mis gastos, Perfil (+ botón flotante "Nuevo gasto")
-│   ├── group/[id].tsx   # gastos, balances (cómo saldar) y miembros/invitaciones
-│   ├── group/new.tsx
-│   ├── expense/new.tsx  # carga rápida de gastos
-│   └── join/[token].tsx # deep link de invitación: clearaccounts://join/<token>
-├── components/          # UI compartida y tema (claro / oscuro)
-├── i18n/                # textos (es); preparado para sumar idiomas
-└── lib/                 # cliente Supabase, API, queries, montos, formulario de gasto
+│   ├── (tabs)/               # menú inferior, siempre visible
+│   │   ├── (home)/           # Inicio → detalle de gasto, "Te deben" / "Debés"
+│   │   ├── groups/           # Grupos → detalle de grupo → detalle de gasto
+│   │   ├── ledger/           # Mis gastos → detalle de gasto
+│   │   └── profile.tsx       # perfil editable
+│   ├── expense-form.tsx      # modal: nuevo gasto / editar (?id=)
+│   ├── group-form.tsx        # modal: nuevo grupo
+│   └── join/[token].tsx      # deep link de invitación: clearaccounts://join/<token>
+├── screens/                  # pantallas (las rutas las re-exportan)
+├── components/               # UI compartida y tema (claro / oscuro)
+├── i18n/                     # textos (es) y mensajes de error
+└── lib/                      # Supabase, API, queries, montos, deudas, formulario de gasto
 ```
 
 ## Calidad

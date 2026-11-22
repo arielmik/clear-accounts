@@ -240,10 +240,10 @@ El MVP es para familia y amigos, pero estas decisiones se toman ahora porque cam
 **Hecho**
 - Dominio (`packages/core`), esquema + RLS + RPCs (`supabase/`), con tests.
 - App Expo con login, grupos, invitaciones por link, miembros sin cuenta, carga de gastos (4 tipos de reparto), balances con "cómo saldar" y registro de pagos, "Mis gastos" con reporte mensual por categoría, tema claro/oscuro.
+- v0.2 de la app: menú inferior siempre visible (una pila por pestaña), detalle de gasto con edición y borrado, detalle de "Te deben" / "Debés" por persona, perfil editable (nombre y email), edición de miembros (renombrar invitados, quitar solo con saldo cero, regla aplicada en la base), deslizar para actualizar, orden por fecha y momento de carga.
 
 **Próximos pasos**
 1. Crear el proyecto Supabase (dev) y probar la app con usuarios reales vía Expo Go.
-2. Editar y borrar gastos (la RPC ya soporta edición).
 3. Categorías propias del usuario y recategorización privada desde la UI.
 4. Login con Google / Apple.
 5. Build interna con EAS (TestFlight / Play Internal Testing) para familia y amigos.

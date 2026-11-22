@@ -1,9 +1,11 @@
 import { computeShares, DomainError, FULL_PERCENT_BPS, type SplitInput } from '@clear-accounts/core';
 import { t } from '../i18n';
-import { parseAmount } from './money';
-import type { Group, SaveExpensePayload, SplitType } from './types';
+import { minorToInput, parseAmount } from './money';
+import type { ExpenseRow, Group, SaveExpensePayload, SplitType } from './types';
 
 export interface ExpenseFormState {
+  /** Presente al editar un gasto existente. */
+  id?: string;
   amountText: string;
   description: string;
   categoryId: string | null;
@@ -26,6 +28,27 @@ export function initialFormState(group: Group, myMemberId: string, today: string
     splitType: 'equal',
     participants: activeMembers(group).map((m) => m.id),
     values: {},
+  };
+}
+
+/** Estado del formulario a partir de un gasto guardado (para editarlo). */
+export function formStateFromExpense(expense: ExpenseRow, group: Group): ExpenseFormState {
+  const values: Record<string, string> = {};
+  for (const s of expense.expense_shares) {
+    if (expense.split_type === 'exact') values[s.member_id] = minorToInput(s.amount_minor, expense.currency);
+    if (expense.split_type === 'percent' && s.split_value !== null) values[s.member_id] = String(s.split_value / 100).replace('.', ',');
+    if (expense.split_type === 'shares' && s.split_value !== null) values[s.member_id] = String(s.split_value);
+  }
+  return {
+    id: expense.id,
+    amountText: minorToInput(expense.amount_minor, expense.currency),
+    description: expense.description,
+    categoryId: expense.category_id,
+    spentAt: expense.spent_at,
+    payerMemberId: expense.expense_payers[0]?.member_id ?? '',
+    splitType: group.kind === 'personal' ? 'equal' : expense.split_type,
+    participants: expense.expense_shares.map((s) => s.member_id),
+    values,
   };
 }
 
@@ -110,6 +133,7 @@ export function buildExpensePayload(state: ExpenseFormState, group: Group): Buil
     return {
       ok: true,
       payload: {
+        ...(state.id ? { id: state.id } : {}),
         group_id: group.id,
         description,
         amount_minor: amount,

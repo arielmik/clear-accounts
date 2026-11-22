@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, Tabs } from 'expo-router';
+import { router, Tabs, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, View, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../components/theme';
@@ -14,6 +14,9 @@ const icon =
 export default function TabsLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  // Dentro de un grupo, el "+" carga el gasto en ese grupo.
+  const groupId = /^\/groups\/([^/]+)$/.exec(pathname)?.[1];
   return (
     <View style={{ flex: 1 }}>
       <Tabs
@@ -25,7 +28,7 @@ export default function TabsLayout() {
           sceneStyle: { backgroundColor: theme.bg },
         }}
       >
-        <Tabs.Screen name="index" options={{ title: t.tabs.home, tabBarIcon: icon('home-outline') }} />
+        <Tabs.Screen name="(home)" options={{ title: t.tabs.home, tabBarIcon: icon('home-outline') }} />
         <Tabs.Screen name="groups" options={{ title: t.tabs.groups, tabBarIcon: icon('people-outline') }} />
         <Tabs.Screen name="ledger" options={{ title: t.tabs.ledger, tabBarIcon: icon('pie-chart-outline') }} />
         <Tabs.Screen name="profile" options={{ title: t.tabs.profile, tabBarIcon: icon('person-outline') }} />
@@ -34,7 +37,7 @@ export default function TabsLayout() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t.expense.new}
-        onPress={() => router.push('/expense/new')}
+        onPress={() => router.push({ pathname: '/expense-form', params: groupId ? { groupId } : {} })}
         style={[styles.fab, { backgroundColor: theme.primary, bottom: insets.bottom + 64 }]}
       >
         <Ionicons name="add" size={32} color={theme.primaryText} />

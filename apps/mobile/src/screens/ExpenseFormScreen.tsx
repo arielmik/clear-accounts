@@ -1,24 +1,57 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-native';
-import { radius, space, useTheme } from '../../components/theme';
-import { Button, Chip, ChipRow, ErrorState, Input, Label, Loading, Row, Screen } from '../../components/ui';
-import { t } from '../../i18n';
-import { useUserId } from '../../lib/auth';
-import { categoryEmoji, categoryIndex } from '../../lib/categories';
-import { isoDate } from '../../lib/dates';
-import { activeMembers, buildExpensePayload, initialFormState, type ExpenseFormState } from '../../lib/expense-form';
-import { formatMoney, parseAmount } from '../../lib/money';
-import { useCategories, useGroups, useSaveExpense } from '../../lib/queries';
-import type { Group, SplitType } from '../../lib/types';
+import { radius, space, useTheme } from '../components/theme';
+import { Button, Chip, ChipRow, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
+import { t } from '../i18n';
+import { useUserId } from '../lib/auth';
+import { categoryEmoji, categoryIndex } from '../lib/categories';
+import { isoDate } from '../lib/dates';
+import { friendlyError } from '../lib/errors';
+import {
+  activeMembers,
+  buildExpensePayload,
+  formStateFromExpense,
+  initialFormState,
+  type ExpenseFormState,
+} from '../lib/expense-form';
+import { formatMoney, parseAmount } from '../lib/money';
+import { useCategories, useExpense, useGroups, useSaveExpense } from '../lib/queries';
+import type { ExpenseRow, Group, SplitType } from '../lib/types';
 
 const SPLIT_TYPES: SplitType[] = ['equal', 'exact', 'percent', 'shares'];
 
-export default function NewExpense() {
-  const params = useLocalSearchParams<{ groupId?: string }>();
+export default function ExpenseFormScreen() {
+  const params = useLocalSearchParams<{ groupId?: string; id?: string }>();
+  return params.id ? <EditExpense id={params.id} /> : <NewExpense groupId={params.groupId} />;
+}
+
+/** Edición: el grupo no se puede cambiar (el gasto pertenece a ese grupo). */
+function EditExpense({ id }: { id: string }) {
   const userId = useUserId();
   const groups = useGroups();
-  const [groupId, setGroupId] = useState<string | undefined>(params.groupId);
+  const expense = useExpense(id);
+  const group = groups.data?.find((g) => g.id === expense.data?.group_id);
+
+  if (groups.isLoading || expense.isLoading) return <Loading />;
+  if (expense.error || groups.error || !group || !expense.data)
+    return (
+      <Screen edges={[]}>
+        <ErrorState error={friendlyError(expense.error ?? groups.error ?? t.expense.notFound)} />
+      </Screen>
+    );
+  return (
+    <>
+      <Stack.Screen options={{ title: t.expense.edit }} />
+      <ExpenseForm group={group} groups={[group]} userId={userId} carry={null} expense={expense.data} onChangeGroup={() => {}} />
+    </>
+  );
+}
+
+function NewExpense({ groupId: initialGroupId }: { groupId?: string | undefined }) {
+  const userId = useUserId();
+  const groups = useGroups();
+  const [groupId, setGroupId] = useState<string | undefined>(initialGroupId);
   // Lo ya cargado sobrevive al cambio de grupo (el reparto sí se reinicia).
   const [carry, setCarry] = useState<Carry | null>(null);
 
@@ -36,6 +69,7 @@ export default function NewExpense() {
       groups={all}
       userId={userId}
       carry={carry}
+      expense={null}
       onChangeGroup={(id, current) => {
         setCarry(current);
         setGroupId(id);
@@ -51,12 +85,14 @@ function ExpenseForm({
   groups,
   userId,
   carry,
+  expense,
   onChangeGroup,
 }: {
   group: Group;
   groups: Group[];
   userId: string;
   carry: Carry | null;
+  expense: ExpenseRow | null;
   onChangeGroup: (id: string, current: Carry) => void;
 }) {
   const theme = useTheme();
@@ -64,10 +100,11 @@ function ExpenseForm({
   const save = useSaveExpense();
   const members = activeMembers(group);
   const myMemberId = members.find((m) => m.user_id === userId)?.id ?? '';
-  const [form, setForm] = useState<ExpenseFormState>(() => ({
-    ...initialFormState(group, myMemberId, isoDate()),
-    ...carry,
-  }));
+  const [form, setForm] = useState<ExpenseFormState>(() =>
+    expense
+      ? formStateFromExpense(expense, group)
+      : { ...initialFormState(group, myMemberId, isoDate()), ...carry },
+  );
   const [error, setError] = useState<string | null>(null);
   const isPersonal = group.kind === 'personal';
   const index = useMemo(() => categoryIndex(categories.data ?? []), [categories.data]);
@@ -105,7 +142,7 @@ function ExpenseForm({
       await save.mutateAsync(result.payload);
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -122,7 +159,7 @@ function ExpenseForm({
             placeholder="0"
             placeholderTextColor={theme.muted}
             keyboardType="decimal-pad"
-            autoFocus
+            autoFocus={!expense}
             style={{ color: theme.text, fontSize: 44, fontWeight: '700', alignSelf: 'stretch', textAlign: 'center' }}
           />
         </View>
@@ -136,6 +173,7 @@ function ExpenseForm({
         />
 
         {/* 3. Grupo (o Personal) */}
+        {/* En edición se muestra solo el grupo del gasto. */}
         <Label>{t.expense.group}</Label>
         <ChipRow>
           {groups.map((g) => (

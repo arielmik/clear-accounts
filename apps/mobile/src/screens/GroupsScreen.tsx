@@ -1,18 +1,19 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Money } from '../../components/Money';
-import { space, useTheme } from '../../components/theme';
-import { Button, Card, Empty, ErrorState, Loading, Row, Screen, Title } from '../../components/ui';
-import { t } from '../../i18n';
-import { useUserId } from '../../lib/auth';
-import { useBalances, useGroups } from '../../lib/queries';
+import { Money } from '../components/Money';
+import { space, useTheme } from '../components/theme';
+import { Button, Card, Empty, ErrorState, Loading, Row, Screen, Title } from '../components/ui';
+import { t } from '../i18n';
+import { useUserId } from '../lib/auth';
+import { useBalances, useGroups, useRefreshAll } from '../lib/queries';
 
 export default function Groups() {
   const theme = useTheme();
   const userId = useUserId();
   const groups = useGroups();
   const balances = useBalances();
+  const refreshAll = useRefreshAll();
   const shared = (groups.data ?? []).filter((g) => g.kind !== 'personal');
 
   const myBalance = useMemo(() => {
@@ -28,7 +29,7 @@ export default function Groups() {
   }, [shared, balances.data, userId]);
 
   return (
-    <Screen>
+    <Screen onRefresh={refreshAll}>
       <Title>{t.groups.title}</Title>
       {groups.isLoading ? <Loading /> : null}
       {groups.error ? <ErrorState error={groups.error} onRetry={() => groups.refetch()} /> : null}
@@ -36,7 +37,7 @@ export default function Groups() {
       {shared.map((g) => {
         const balance = myBalance.get(g.id) ?? 0;
         return (
-          <Pressable key={g.id} onPress={() => router.push(`/group/${g.id}`)}>
+          <Pressable key={g.id} onPress={() => router.push(`/groups/${g.id}`)}>
             <Card>
               <Row style={{ justifyContent: 'space-between' }}>
                 <View style={{ flex: 1 }}>
@@ -57,7 +58,7 @@ export default function Groups() {
         );
       })}
       <View style={{ marginTop: space.sm }}>
-        <Button title={t.groups.new} variant="secondary" onPress={() => router.push('/group/new')} />
+        <Button title={t.groups.new} variant="secondary" onPress={() => router.push('/group-form')} />
       </View>
     </Screen>
   );

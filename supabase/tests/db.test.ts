@@ -218,3 +218,95 @@ describe('balances y liquidaciones', () => {
     expect(byMember).toEqual({ [anaM]: 1000000, [betoM]: -1000000 });
   });
 });
+
+describe('edición de miembros', () => {
+  it('no se puede dar de baja a alguien con saldo pendiente', async () => {
+    await expect(
+      as(ANA, (tx) => tx.query('update group_members set left_at = now() where id = $1', [betoM])),
+    ).rejects.toThrow(/MEMBER_HAS_BALANCE/);
+  });
+
+  it('un invitado sin movimientos se puede renombrar y dar de baja', async () => {
+    const caro = await as(ANA, async (tx) =>
+      (await tx.query<{ id: string }>(
+        `insert into group_members (group_id, display_name) values ($1, 'Caro') returning id`,
+        [tripId],
+      )).rows[0]!.id,
+    );
+    await as(ANA, (tx) => tx.query(`update group_members set display_name = 'Carolina' where id = $1`, [caro]));
+    await as(ANA, (tx) => tx.query('update group_members set left_at = now() where id = $1', [caro]));
+    const r = await db.query<{ display_name: string; left_at: string | null }>(
+      'select display_name, left_at from group_members where id = $1',
+      [caro],
+    );
+    expect(r.rows[0]!.display_name).toBe('Carolina');
+    expect(r.rows[0]!.left_at).not.toBeNull();
+  });
+
+  it('nadie renombra a otro usuario registrado', async () => {
+    await expect(
+      as(ANA, (tx) => tx.query(`update group_members set display_name = 'Betito' where id = $1`, [betoM])),
+    ).rejects.toThrow(/CANNOT_RENAME_REGISTERED/);
+  });
+
+  it('no se puede cambiar el rol ni el usuario de un miembro', async () => {
+    await expect(
+      as(BETO, (tx) => tx.query(`update group_members set role = 'owner' where id = $1`, [betoM])),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      as(BETO, (tx) => tx.query(`update group_members set user_id = $2 where id = $1`, [anaM, BETO])),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it('update_my_profile cambia el nombre en el perfil y en todos los grupos', async () => {
+    await as(BETO, (tx) => tx.query(`select update_my_profile('Roberto')`));
+    const names = await db.query<{ display_name: string }>(
+      'select display_name from group_members where user_id = $1',
+      [BETO],
+    );
+    expect(names.rows.every((r) => r.display_name === 'Roberto')).toBe(true);
+    const p = await db.query<{ display_name: string }>('select display_name from profiles where id = $1', [BETO]);
+    expect(p.rows[0]!.display_name).toBe('Roberto');
+  });
+});
+
+describe('borrado de gastos y baja con saldo en cero', () => {
+  it('un gasto borrado sale del registro personal y de los balances', async () => {
+    const cena = (await db.query<{ id: string }>(`select id from expenses where description = 'Cena'`)).rows[0]!.id;
+    await as(ANA, (tx) => tx.query('update expenses set deleted_at = now() where id = $1', [cena]));
+
+    const ledger = await as(BETO, async (tx) => (await tx.query(`select * from my_ledger where expense_id = $1`, [cena])).rows);
+    expect(ledger).toEqual([]);
+
+    // Queda solo la liquidación de 5.000: Beto +5.000, Ana -5.000.
+    const rows = await as(ANA, async (tx) =>
+      (await tx.query<{ member_id: string; balance_minor: string }>(
+        'select member_id, balance_minor from group_balances where group_id = $1',
+        [tripId],
+      )).rows,
+    );
+    expect(Object.fromEntries(rows.map((r) => [r.member_id, Number(r.balance_minor)]))).toEqual({
+      [anaM]: -500000,
+      [betoM]: 500000,
+    });
+  });
+
+  it('con las cuentas saldadas, el miembro se puede dar de baja', async () => {
+    await as(ANA, (tx) =>
+      tx.query(
+        `insert into settlements (group_id, from_member_id, to_member_id, amount_minor, currency, created_by)
+         values ($1, $2, $3, 500000, 'ARS', $4)`,
+        [tripId, anaM, betoM, ANA],
+      ),
+    );
+    await as(ANA, (tx) => tx.query('update group_members set left_at = now() where id = $1', [betoM]));
+    // Beto ya no ve el grupo.
+    const visible = await as(BETO, async (tx) => (await tx.query('select id from groups where id = $1', [tripId])).rows);
+    expect(visible).toEqual([]);
+  });
+
+  it('my_ledger expone created_at para ordenar', async () => {
+    const cols = await as(BETO, async (tx) => (await tx.query('select created_at from my_ledger limit 1')).rows);
+    expect(cols[0]).toHaveProperty('created_at');
+  });
+});

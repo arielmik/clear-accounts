@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,16 +21,38 @@ export function Screen({
   children,
   scroll = true,
   edges = ['top'],
+  onRefresh,
 }: {
   children: ReactNode;
   scroll?: boolean;
   edges?: Edge[];
+  /** Si se indica, deslizar hacia abajo recarga los datos. */
+  onRefresh?: () => Promise<unknown>;
 }) {
   const theme = useTheme();
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = onRefresh
+    ? async () => {
+        setRefreshing(true);
+        try {
+          await onRefresh();
+        } finally {
+          setRefreshing(false);
+        }
+      }
+    : undefined;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={edges}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.screen}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            refresh ? (
+              <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.primary} colors={[theme.primary]} />
+            ) : undefined
+          }
+        >
           {children}
         </ScrollView>
       ) : (

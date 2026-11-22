@@ -26,9 +26,8 @@ function RootNavigator() {
     >
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="group/[id]" options={{ title: '' }} />
-        <Stack.Screen name="group/new" options={{ title: t.groups.new, presentation: 'modal' }} />
-        <Stack.Screen name="expense/new" options={{ title: t.expense.new, presentation: 'modal' }} />
+        <Stack.Screen name="group-form" options={{ title: t.groups.new, presentation: 'modal' }} />
+        <Stack.Screen name="expense-form" options={{ title: t.expense.new, presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="login" options={{ headerShown: false }} />

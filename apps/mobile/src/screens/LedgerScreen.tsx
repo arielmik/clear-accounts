@@ -2,15 +2,15 @@ import { cashflowSummary } from '@clear-accounts/core';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { LedgerList } from '../../components/LedgerList';
-import { Money } from '../../components/Money';
-import { radius, space, useTheme } from '../../components/theme';
-import { Card, Empty, ErrorState, Label, Loading, Row, Screen, Title } from '../../components/ui';
-import { t } from '../../i18n';
-import { categoryEmoji, categoryIndex } from '../../lib/categories';
-import { monthLabel, monthRange } from '../../lib/dates';
-import { toLedgerEntries } from '../../lib/ledger';
-import { useCategories, useLedger } from '../../lib/queries';
+import { LedgerList } from '../components/LedgerList';
+import { Money } from '../components/Money';
+import { radius, space, useTheme } from '../components/theme';
+import { Card, Empty, ErrorState, Label, Loading, Row, Screen, Title } from '../components/ui';
+import { t } from '../i18n';
+import { categoryEmoji, categoryIndex } from '../lib/categories';
+import { monthLabel, monthRange } from '../lib/dates';
+import { toLedgerEntries } from '../lib/ledger';
+import { useCategories, useLedger, useRefreshAll } from '../lib/queries';
 
 export default function Ledger() {
   const theme = useTheme();
@@ -19,6 +19,7 @@ export default function Ledger() {
   const { from, to } = monthRange(cursor.year, cursor.month);
   const ledger = useLedger(from, to);
   const categories = useCategories();
+  const refreshAll = useRefreshAll();
 
   const move = (delta: number) =>
     setCursor(({ year, month }) => {
@@ -48,7 +49,7 @@ export default function Ledger() {
   const totals = useMemo(() => cashflowSummary(toLedgerEntries(ledger.data ?? [])), [ledger.data]);
 
   return (
-    <Screen>
+    <Screen onRefresh={refreshAll}>
       <Title>{t.ledger.title}</Title>
       <Row style={{ justifyContent: 'space-between' }}>
         <Pressable accessibilityLabel="Mes anterior" onPress={() => move(-1)} hitSlop={12}>

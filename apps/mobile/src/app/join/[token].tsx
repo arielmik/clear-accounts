@@ -19,7 +19,7 @@ export default function Join() {
     acceptInvite(token)
       .then(async (groupId) => {
         await qc.invalidateQueries({ queryKey: ['groups'] });
-        router.replace(`/group/${groupId}`);
+        router.replace(`/groups/${groupId}`);
       })
       .catch(() => setError(t.join.invalid));
   }, [session, token, qc]);
