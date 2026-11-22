@@ -13,12 +13,12 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
 
    Ojo: hay que pegar el SQL de adentro del archivo, no la ruta: el editor no lee archivos del repo.
 3. En **Authentication → Sign In / Providers → Email**, desactivar **Confirm email** (para el MVP de familia y amigos; se reactiva antes del lanzamiento público).
-4. Copiar la **Project URL** y la **anon / publishable key** desde **Project Settings → API**.
+4. Botón **Connect** → **Expo React Native**: copiar `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_KEY` (la clave `sb_publishable_…`, nunca la secret).
 
 ### 2. Configurar y correr la app
 
 ```bash
-cp apps/mobile/.env.example apps/mobile/.env   # y completar los dos valores
+cp apps/mobile/.env.example apps/mobile/.env   # y completar los dos valores (NO subirlo a git)
 npm install
 npm run start -w @clear-accounts/mobile   # debe mostrar "env: load .env"
 ```
