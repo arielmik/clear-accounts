@@ -23,7 +23,7 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
 
 ```bash
 cp apps/mobile/.env.example apps/mobile/.env   # y completar los dos valores (NO subirlo a git)
-npm install
+npm ci          # instala exactamente lo del lockfile, sin modificarlo
 npm run start -w @clear-accounts/mobile   # debe mostrar "env: load .env"
 ```
 

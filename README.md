@@ -22,7 +22,7 @@ Documento de diseño: [docs/DESIGN.md](docs/DESIGN.md)
 Requiere Node 22.
 
 ```bash
-npm install
+npm ci          # instala exactamente lo del lockfile, sin modificarlo
 npm test        # tests de dominio, app y base de datos
 npm run typecheck
 ```
