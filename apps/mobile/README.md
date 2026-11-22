@@ -12,6 +12,7 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
    - `20261121000100_seed_categories.sql`
    - `20261122000000_grants.sql`
    - `20261122000100_members_profile.sql`
+   - `20261122000200_images_realtime.sql` (crea el bucket privado `images` y activa el tiempo real)
 
    Ojo: hay que pegar el SQL de adentro del archivo, no la ruta: el editor no lee archivos del repo.
 3. En **Authentication → Sign In / Providers → Email**, desactivar **Confirm email** (para el MVP de familia y amigos; se reactiva antes del lanzamiento público).
@@ -41,6 +42,7 @@ src/
 │   │   └── profile.tsx       # perfil editable
 │   ├── expense-form.tsx      # modal: nuevo gasto / editar (?id=)
 │   ├── group-form.tsx        # modal: nuevo grupo
+│   ├── settle-form.tsx       # modal: registrar pago (monto editable)
 │   └── join/[token].tsx      # deep link de invitación: clearaccounts://join/<token>
 ├── screens/                  # pantallas (las rutas las re-exportan)
 ├── components/               # UI compartida y tema (claro / oscuro)

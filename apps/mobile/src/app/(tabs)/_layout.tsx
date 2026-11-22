@@ -2,8 +2,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Tabs, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, View, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Avatar } from '../../components/Avatar';
 import { useTheme } from '../../components/theme';
 import { t } from '../../i18n';
+import { useUserId } from '../../lib/auth';
+import { useProfile } from '../../lib/queries';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -15,6 +18,8 @@ export default function TabsLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const profile = useProfile(useUserId());
+  const avatarPath = profile.data?.avatar_path;
   // Dentro de un grupo, el "+" carga el gasto en ese grupo.
   const groupId = /^\/groups\/([^/]+)$/.exec(pathname)?.[1];
   return (
@@ -31,7 +36,16 @@ export default function TabsLayout() {
         <Tabs.Screen name="(home)" options={{ title: t.tabs.home, tabBarIcon: icon('home-outline') }} />
         <Tabs.Screen name="groups" options={{ title: t.tabs.groups, tabBarIcon: icon('people-outline') }} />
         <Tabs.Screen name="ledger" options={{ title: t.tabs.ledger, tabBarIcon: icon('pie-chart-outline') }} />
-        <Tabs.Screen name="profile" options={{ title: t.tabs.profile, tabBarIcon: icon('person-outline') }} />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: t.tabs.profile,
+            // Con foto cargada, reemplaza al ícono; si no, queda el ícono de siempre.
+            tabBarIcon: avatarPath
+              ? ({ size }) => <Avatar path={avatarPath} size={size + 2} />
+              : icon('person-outline'),
+          }}
+        />
       </Tabs>
       {/* Botón principal: cargar un gasto desde cualquier pestaña. */}
       <Pressable

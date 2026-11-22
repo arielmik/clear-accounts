@@ -11,9 +11,9 @@ const m = (id: string, user_id: string | null, display_name: string) => ({
 });
 
 const groups: Group[] = [
-  { id: 'p', name: 'Personal', kind: 'personal', currency: 'ARS', simplify_debts: false, group_members: [m('mp', 'me', 'Yo')] },
-  { id: 'trip', name: 'Viaje', kind: 'trip', currency: 'ARS', simplify_debts: true, group_members: [m('v', 'me', 'Yo'), m('a', 'u-a', 'Ana'), m('b', null, 'Beto')] },
-  { id: 'home', name: 'Casa', kind: 'home', currency: 'ARS', simplify_debts: true, group_members: [m('v2', 'me', 'Yo'), m('l', 'u-l', 'Lu')] },
+  { id: 'p', name: 'Personal', kind: 'personal', currency: 'ARS', simplify_debts: false, image_path: null, group_members: [m('mp', 'me', 'Yo')] },
+  { id: 'trip', name: 'Viaje', kind: 'trip', currency: 'ARS', simplify_debts: true, image_path: null, group_members: [m('v', 'me', 'Yo'), m('a', 'u-a', 'Ana'), m('b', null, 'Beto')] },
+  { id: 'home', name: 'Casa', kind: 'home', currency: 'ARS', simplify_debts: true, image_path: null, group_members: [m('v2', 'me', 'Yo'), m('l', 'u-l', 'Lu')] },
 ];
 
 const balances: BalanceRow[] = [
@@ -44,5 +44,20 @@ describe('myDebts', () => {
     const d = myDebts(groups, balances, 'u-a');
     expect(d.owed).toEqual([]);
     expect(d.owe.map((x) => [x.name, x.amountMinor])).toEqual([['Yo', 7000]]);
+  });
+});
+
+import { balanceAfterPayment } from '../src/lib/settle';
+
+describe('balanceAfterPayment', () => {
+  const balances = { beto: -10000, ana: 10000 };
+  it('pago exacto: los dos quedan saldados', () => {
+    expect(balanceAfterPayment(balances, 'beto', 'ana', 10000)).toEqual({ from: 0, to: 0 });
+  });
+  it('pago parcial: sigue la deuda', () => {
+    expect(balanceAfterPayment(balances, 'beto', 'ana', 4000)).toEqual({ from: -6000, to: 6000 });
+  });
+  it('pago de más: ahora Ana le debe a Beto', () => {
+    expect(balanceAfterPayment(balances, 'beto', 'ana', 15000)).toEqual({ from: 5000, to: -5000 });
   });
 });

@@ -11,6 +11,7 @@ export const keys = {
   ledger: (from: string, to: string) => ['ledger', from, to] as const,
   expense: (id: string) => ['expense', id] as const,
   profile: (userId: string) => ['profile', userId] as const,
+  settlements: (groupId: string) => ['settlements', groupId] as const,
 };
 
 export const useGroups = () => useQuery({ queryKey: keys.groups, queryFn: api.fetchGroups });
@@ -25,6 +26,8 @@ export const useLedger = (from: string, to: string) =>
   useQuery({ queryKey: keys.ledger(from, to), queryFn: () => api.fetchLedger(from, to) });
 
 export const useExpense = (id: string) => useQuery({ queryKey: keys.expense(id), queryFn: () => api.fetchExpense(id) });
+export const useSettlements = (groupId: string) =>
+  useQuery({ queryKey: keys.settlements(groupId), queryFn: () => api.fetchSettlements(groupId) });
 export const useProfile = (userId: string) =>
   useQuery({ queryKey: keys.profile(userId), queryFn: () => api.fetchProfile(userId) });
 
@@ -37,6 +40,7 @@ function useInvalidateMoney() {
       qc.invalidateQueries({ queryKey: ['balances'] }),
       qc.invalidateQueries({ queryKey: ['ledger'] }),
       qc.invalidateQueries({ queryKey: ['expense'] }),
+      qc.invalidateQueries({ queryKey: ['settlements'] }),
     ]);
 }
 
@@ -53,6 +57,11 @@ export function useDeleteExpense() {
 export function useCreateSettlement() {
   const invalidate = useInvalidateMoney();
   return useMutation({ mutationFn: api.createSettlement, onSuccess: invalidate });
+}
+
+export function useDeleteSettlement() {
+  const invalidate = useInvalidateMoney();
+  return useMutation({ mutationFn: api.deleteSettlement, onSuccess: invalidate });
 }
 
 export function useInvalidateGroups() {

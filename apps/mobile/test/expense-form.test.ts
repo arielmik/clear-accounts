@@ -16,6 +16,7 @@ const trip: Group = {
   kind: 'trip',
   currency: 'ARS',
   simplify_debts: true,
+  image_path: null,
   group_members: [member('ana', 'u-ana'), member('beto', 'u-beto'), member('vos', 'u-vos')],
 };
 

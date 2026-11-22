@@ -7,11 +7,15 @@ import { useTheme } from '../components/theme';
 import { Body, Screen, Title } from '../components/ui';
 import { t } from '../i18n';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { setupFocusRefetch, useRealtimeSync } from '../lib/realtime';
 import { isSupabaseConfigured, missingEnvVars } from '../lib/supabase';
+
+setupFocusRefetch();
 
 function RootNavigator() {
   const { session, loading } = useAuth();
   const theme = useTheme();
+  useRealtimeSync(!!session);
   if (loading) return null;
 
   return (
@@ -28,6 +32,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="group-form" options={{ title: t.groups.new, presentation: 'modal' }} />
         <Stack.Screen name="expense-form" options={{ title: t.expense.new, presentation: 'modal' }} />
+        <Stack.Screen name="settle-form" options={{ title: t.settle.title, presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="login" options={{ headerShown: false }} />

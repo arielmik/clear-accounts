@@ -3,25 +3,30 @@ import * as Linking from 'expo-linking';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Share, Text, View } from 'react-native';
+import { Avatar } from '../components/Avatar';
 import { Money } from '../components/Money';
 import { space, useTheme } from '../components/theme';
 import { Button, Card, Chip, ChipRow, Empty, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
-import { addGuestMember, createInvite, removeMember, renameMember } from '../lib/api';
+import { addGuestMember, createInvite, removeMember, renameMember, setGroupImage } from '../lib/api';
 import { useUserId } from '../lib/auth';
 import { confirm } from '../lib/confirm';
 import { shortDate } from '../lib/dates';
 import { friendlyError } from '../lib/errors';
+import { removeStoredImage, replaceImage } from '../lib/images';
 import { formatMoney } from '../lib/money';
 import {
   useBalances,
-  useCreateSettlement,
+  useDeleteSettlement,
   useGroup,
   useGroupExpenses,
   useInvalidateGroups,
   useRefreshAll,
+  useSettlements,
 } from '../lib/queries';
-import type { Member } from '../lib/types';
+import type { ExpenseRow, Member, SettlementRow } from '../lib/types';
+
+type ActivityItem = { kind: 'expense'; date: string; created: string; e: ExpenseRow } | { kind: 'payment'; date: string; created: string; p: SettlementRow };
 
 type Section = 'expenses' | 'balances' | 'members';
 
@@ -32,7 +37,10 @@ export default function GroupDetailScreen() {
   const group = useGroup(id);
   const expenses = useGroupExpenses(id);
   const balances = useBalances(id);
-  const settle = useCreateSettlement();
+  const settlements = useSettlements(id);
+  const deletePayment = useDeleteSettlement();
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   const invalidateGroups = useInvalidateGroups();
   const refreshAll = useRefreshAll();
   const [section, setSection] = useState<Section>('expenses');
@@ -57,6 +65,15 @@ export default function GroupDetailScreen() {
     }
     return map;
   }, [balances.data]);
+
+  // Gastos y pagos juntos, del más nuevo al más viejo.
+  const activity = useMemo<ActivityItem[]>(() => {
+    const items: ActivityItem[] = [
+      ...(expenses.data ?? []).map((e) => ({ kind: 'expense' as const, date: e.spent_at, created: '', e })),
+      ...(settlements.data ?? []).map((p) => ({ kind: 'payment' as const, date: p.paid_at, created: p.created_at, p })),
+    ];
+    return items.sort((a, b) => b.date.localeCompare(a.date) || b.created.localeCompare(a.created));
+  }, [expenses.data, settlements.data]);
 
   const transfers = useMemo(() => {
     const byCurrency: Record<string, Record<string, number>> = {};
@@ -96,26 +113,67 @@ export default function GroupDetailScreen() {
     await runMemberAction(() => removeMember(m.id));
   }
 
-  async function markPaid(tr: (typeof transfers)[number]) {
-    const ok = await confirm(
-      t.groups.confirmSettle(nameOf(tr.fromMemberId), nameOf(tr.toMemberId), formatMoney(tr.amountMinor, tr.currency)),
-      t.groups.markPaid,
-      t.common.cancel,
-    );
-    if (!ok) return;
-    settle.mutate({
-      groupId: g.id,
-      fromMemberId: tr.fromMemberId,
-      toMemberId: tr.toMemberId,
-      amountMinor: tr.amountMinor,
-      currency: tr.currency,
-      userId,
+  function openSettle(tr?: (typeof transfers)[number]) {
+    router.push({
+      pathname: '/settle-form',
+      params: tr
+        ? { groupId: g.id, from: tr.fromMemberId, to: tr.toMemberId, amount: String(tr.amountMinor) }
+        : { groupId: g.id, from: me?.id ?? '' },
     });
+  }
+
+  async function removePayment(p: SettlementRow) {
+    const text = t.groups.paymentRow(nameOf(p.from_member_id), nameOf(p.to_member_id));
+    if (!(await confirm(t.groups.confirmDeletePayment(text, formatMoney(p.amount_minor, p.currency)), t.expense.delete, t.common.cancel))) return;
+    deletePayment.mutate(p.id);
+  }
+
+  async function changeImage() {
+    setImageBusy(true);
+    setImageError(null);
+    try {
+      const changed = await replaceImage({
+        kind: 'groups',
+        ownerId: g.id,
+        currentPath: g.image_path,
+        assign: (path) => setGroupImage(g.id, path),
+      });
+      if (changed) await Promise.all([group.refetch(), invalidateGroups()]);
+    } catch (e) {
+      setImageError(friendlyError(e));
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  async function removeImage() {
+    if (!g.image_path) return;
+    setImageBusy(true);
+    try {
+      await setGroupImage(g.id, null);
+      await removeStoredImage(g.image_path);
+      await Promise.all([group.refetch(), invalidateGroups()]);
+    } catch (e) {
+      setImageError(friendlyError(e));
+    } finally {
+      setImageBusy(false);
+    }
   }
 
   return (
     <Screen edges={[]} onRefresh={refreshAll}>
       <Stack.Screen options={{ title: g.name }} />
+      <View style={{ alignItems: 'center', gap: space.sm }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t.groups.changeImage} onPress={changeImage} disabled={imageBusy}>
+          <Avatar path={g.image_path} size={96} name={g.name} />
+        </Pressable>
+        <Row>
+          <Chip label={g.image_path ? t.groups.changeImage : t.groups.addImage} onPress={changeImage} />
+          {g.image_path ? <Chip label={t.groups.removeImage} onPress={removeImage} /> : null}
+        </Row>
+        {imageBusy ? <Loading /> : null}
+        {imageError ? <Text style={{ color: theme.negative }}>{imageError}</Text> : null}
+      </View>
       <ChipRow>
         <Chip label={t.groups.expenses} selected={section === 'expenses'} onPress={() => setSection('expenses')} />
         <Chip label={t.groups.balances} selected={section === 'balances'} onPress={() => setSection('balances')} />
@@ -130,10 +188,34 @@ export default function GroupDetailScreen() {
           />
           {expenses.isLoading ? <Loading /> : null}
           {expenses.error ? <ErrorState error={expenses.error} onRetry={() => expenses.refetch()} /> : null}
-          {expenses.data?.length === 0 ? <Empty>{t.groups.noExpenses}</Empty> : null}
-          {expenses.data?.map((e) => {
+          {expenses.data?.length === 0 && settlements.data?.length === 0 ? <Empty>{t.groups.noExpenses}</Empty> : null}
+          {activity.map((item) => {
+            if (item.kind === 'payment') {
+              const p = item.p;
+              return (
+                <Pressable
+                  key={`p-${p.id}`}
+                  accessibilityRole="button"
+                  onPress={() => removePayment(p)}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                >
+                  <Card style={{ backgroundColor: theme.chip }}>
+                    <Row style={{ justifyContent: 'space-between' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 15 }}>
+                          💸 {t.groups.paymentRow(nameOf(p.from_member_id), nameOf(p.to_member_id))}
+                        </Text>
+                        <Text style={{ color: theme.muted, fontSize: 13 }}>{shortDate(p.paid_at)}</Text>
+                      </View>
+                      <Money minor={p.amount_minor} currency={p.currency} />
+                    </Row>
+                  </Card>
+                </Pressable>
+              );
+            }
+            const e = item.e;
             const payer = e.expense_payers[0];
-            const myShare = e.expense_shares.find((s) => s.member_id === me?.id)?.amount_minor ?? 0;
+            const myShare = e.expense_shares.find((sh) => sh.member_id === me?.id)?.amount_minor ?? 0;
             return (
               <Pressable
                 key={e.id}
@@ -186,14 +268,10 @@ export default function GroupDetailScreen() {
                 )}
               </Text>
               <Money minor={tr.amountMinor} currency={tr.currency} style={{ fontSize: 22 }} />
-              <Button
-                title={t.groups.markPaid}
-                variant="secondary"
-                onPress={() => markPaid(tr)}
-                loading={settle.isPending}
-              />
+              <Button title={t.groups.markPaid} variant="secondary" onPress={() => openSettle(tr)} />
             </Card>
           ))}
+          <Button title={t.groups.registerPayment} variant="secondary" onPress={() => openSettle()} />
         </>
       ) : null}
 

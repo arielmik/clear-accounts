@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { Avatar } from '../components/Avatar';
 import { Money } from '../components/Money';
 import { space, useTheme } from '../components/theme';
 import { Button, Card, Empty, ErrorState, Loading, Row, Screen, Title } from '../components/ui';
@@ -39,7 +40,8 @@ export default function Groups() {
         return (
           <Pressable key={g.id} onPress={() => router.push(`/groups/${g.id}`)}>
             <Card>
-              <Row style={{ justifyContent: 'space-between' }}>
+              <Row style={{ justifyContent: 'space-between', gap: space.md }}>
+                <Avatar path={g.image_path} size={48} name={g.name} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.text, fontSize: 18, fontWeight: '600' }}>{g.name}</Text>
                   <Text style={{ color: theme.muted }}>

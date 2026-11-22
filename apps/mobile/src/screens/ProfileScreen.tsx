@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Text } from 'react-native';
-import { useTheme } from '../components/theme';
-import { Button, Card, Input, Label, Screen, Title } from '../components/ui';
+import { Pressable, Text, View } from 'react-native';
+import { Avatar } from '../components/Avatar';
+import { space, useTheme } from '../components/theme';
+import { Button, Card, Chip, Input, Label, Loading, Row, Screen, Title } from '../components/ui';
 import { t } from '../i18n';
-import { updateMyEmail, updateMyName } from '../lib/api';
+import { setMyAvatar, updateMyEmail, updateMyName } from '../lib/api';
+import { removeStoredImage, replaceImage } from '../lib/images';
 import { useAuth, useUserId } from '../lib/auth';
 import { friendlyError } from '../lib/errors';
 import { useInvalidateGroups, useProfile, useRefreshAll } from '../lib/queries';
@@ -25,6 +27,37 @@ export default function ProfileScreen() {
   const [savingEmail, setSavingEmail] = useState(false);
   const [nameStatus, setNameStatus] = useState<Status>(null);
   const [emailStatus, setEmailStatus] = useState<Status>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const avatarPath = profile.data?.avatar_path ?? null;
+
+  async function changePhoto() {
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const changed = await replaceImage({ kind: 'users', ownerId: userId, currentPath: avatarPath, assign: setMyAvatar });
+      if (changed) await profile.refetch();
+    } catch (e) {
+      setPhotoError(friendlyError(e));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function removePhoto() {
+    if (!avatarPath) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      await setMyAvatar(null);
+      await removeStoredImage(avatarPath);
+      await profile.refetch();
+    } catch (e) {
+      setPhotoError(friendlyError(e));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (profile.data) setName(profile.data.display_name);
@@ -63,6 +96,17 @@ export default function ProfileScreen() {
   return (
     <Screen onRefresh={refreshAll}>
       <Title>{t.tabs.profile}</Title>
+      <View style={{ alignItems: 'center', gap: space.sm }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t.profile.changePhoto} onPress={changePhoto} disabled={photoBusy}>
+          <Avatar path={avatarPath} size={112} icon="person" />
+        </Pressable>
+        <Row>
+          <Chip label={avatarPath ? t.profile.changePhoto : t.profile.addPhoto} onPress={changePhoto} />
+          {avatarPath ? <Chip label={t.profile.removePhoto} onPress={removePhoto} /> : null}
+        </Row>
+        {photoBusy ? <Loading /> : null}
+        {photoError ? <Text style={{ color: theme.negative }}>{photoError}</Text> : null}
+      </View>
       <Card>
         <Label>{t.profile.name}</Label>
         <Input value={name} onChangeText={setName} autoComplete="name" />

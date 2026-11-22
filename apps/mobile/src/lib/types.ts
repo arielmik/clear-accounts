@@ -15,6 +15,7 @@ export interface Group {
   kind: GroupKind;
   currency: string;
   simplify_debts: boolean;
+  image_path: string | null;
   group_members: Member[];
 }
 
@@ -80,4 +81,16 @@ export interface Profile {
   id: string;
   display_name: string;
   default_currency: string;
+  avatar_path: string | null;
+}
+
+export interface SettlementRow {
+  id: string;
+  group_id: string;
+  from_member_id: string;
+  to_member_id: string;
+  amount_minor: number;
+  currency: string;
+  paid_at: string;
+  created_at: string;
 }

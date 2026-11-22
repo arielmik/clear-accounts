@@ -1,12 +1,23 @@
 import { supabase } from './supabase';
-import type { BalanceRow, Category, ExpenseRow, Group, GroupKind, LedgerRow, Profile, SaveExpensePayload } from './types';
+import type {
+  BalanceRow,
+  Category,
+  ExpenseRow,
+  Group,
+  GroupKind,
+  LedgerRow,
+  Profile,
+  SaveExpensePayload,
+  SettlementRow,
+} from './types';
 
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T {
   if (result.error) throw new Error(result.error.message);
   return result.data as T;
 }
 
-const GROUP_FIELDS = 'id, name, kind, currency, simplify_debts, group_members(id, user_id, display_name, role, left_at)';
+const GROUP_FIELDS =
+  'id, name, kind, currency, simplify_debts, image_path, group_members(id, user_id, display_name, role, left_at)';
 
 export async function fetchGroups(): Promise<Group[]> {
   return unwrap(
@@ -145,7 +156,7 @@ export async function removeMember(memberId: string): Promise<void> {
 
 export async function fetchProfile(userId: string): Promise<Profile> {
   return unwrap(
-    await supabase.from('profiles').select('id, display_name, default_currency').eq('id', userId).single(),
+    await supabase.from('profiles').select('id, display_name, default_currency, avatar_path').eq('id', userId).single(),
   ) as Profile;
 }
 
@@ -160,4 +171,29 @@ export async function updateMyName(displayName: string): Promise<void> {
 export async function updateMyEmail(email: string): Promise<void> {
   const { error } = await supabase.auth.updateUser({ email });
   if (error) throw new Error(error.message);
+}
+
+export async function fetchSettlements(groupId: string): Promise<SettlementRow[]> {
+  const rows = unwrap(
+    await supabase
+      .from('settlements')
+      .select('id, group_id, from_member_id, to_member_id, amount_minor, currency, paid_at, created_at')
+      .eq('group_id', groupId)
+      .is('deleted_at', null)
+      .order('paid_at', { ascending: false })
+      .order('created_at', { ascending: false }),
+  ) as SettlementRow[];
+  return rows.map((r) => ({ ...r, amount_minor: Number(r.amount_minor) }));
+}
+
+export async function deleteSettlement(id: string): Promise<void> {
+  unwrap(await supabase.from('settlements').update({ deleted_at: new Date().toISOString() }).eq('id', id));
+}
+
+export async function setGroupImage(groupId: string, path: string | null): Promise<void> {
+  unwrap(await supabase.rpc('set_group_image', { p_group_id: groupId, p_path: path }));
+}
+
+export async function setMyAvatar(path: string | null): Promise<void> {
+  unwrap(await supabase.rpc('set_my_avatar', { p_path: path }));
 }

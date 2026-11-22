@@ -310,3 +310,54 @@ describe('borrado de gastos y baja con saldo en cero', () => {
     expect(cols[0]).toHaveProperty('created_at');
   });
 });
+
+describe('imágenes', () => {
+  const upload = (tx: Pick<PGlite, 'query'>, name: string) =>
+    tx.query(`insert into storage.objects (bucket_id, name) values ('images', $1)`, [name]);
+
+  it('un miembro sube y asigna la imagen del grupo', async () => {
+    const path = `groups/${tripId}/foto.jpg`;
+    await as(ANA, async (tx) => {
+      await upload(tx, path);
+      await tx.query('select set_group_image($1, $2)', [tripId, path]);
+    });
+    const r = await db.query<{ image_path: string }>('select image_path from groups where id = $1', [tripId]);
+    expect(r.rows[0]!.image_path).toBe(path);
+  });
+
+  it('un no-miembro no puede subir ni asignar imágenes del grupo', async () => {
+    await expect(as(EVA, (tx) => upload(tx, `groups/${tripId}/intruso.jpg`))).rejects.toThrow(/row-level security/);
+    await expect(
+      as(EVA, (tx) => tx.query('select set_group_image($1, $2)', [tripId, `groups/${tripId}/x.jpg`])),
+    ).rejects.toThrow(/NOT_A_MEMBER/);
+  });
+
+  it('la ruta de la imagen tiene que ser del mismo grupo', async () => {
+    const other = await personalGroup(ANA);
+    await expect(
+      as(ANA, (tx) => tx.query('select set_group_image($1, $2)', [tripId, `groups/${other}/x.jpg`])),
+    ).rejects.toThrow(/INVALID_IMAGE_PATH/);
+  });
+
+  it('avatar: solo el dueño lo sube; lo ve quien comparte grupo, no un extraño', async () => {
+    const path = `users/${ANA}/avatar.jpg`;
+    await as(ANA, async (tx) => {
+      await upload(tx, path);
+      await tx.query('select set_my_avatar($1)', [path]);
+    });
+    await expect(as(BETO, (tx) => upload(tx, `users/${ANA}/falso.jpg`))).rejects.toThrow(/row-level security/);
+    await expect(as(BETO, (tx) => tx.query('select set_my_avatar($1)', [path]))).rejects.toThrow(/INVALID_IMAGE_PATH/);
+
+    const seenBy = async (user: string) =>
+      as(user, async (tx) => (await tx.query(`select name from storage.objects where name = $1`, [path])).rows.length);
+    expect(await seenBy(ANA)).toBe(1);
+    expect(await seenBy(EVA)).toBe(0);
+  });
+
+  it('las tablas clave están publicadas para tiempo real', async () => {
+    const r = await db.query<{ tablename: string }>(
+      `select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by tablename`,
+    );
+    expect(r.rows.map((x) => x.tablename)).toEqual(['expenses', 'group_members', 'groups', 'profiles', 'settlements']);
+  });
+});
