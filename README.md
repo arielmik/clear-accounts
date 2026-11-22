@@ -13,6 +13,7 @@ Documento de diseño: [docs/DESIGN.md](docs/DESIGN.md)
 | Carpeta | Contenido |
 |---|---|
 | `apps/mobile` | App Expo (iOS / Android / web). Ver [apps/mobile/README.md](apps/mobile/README.md) para correrla. |
+| `web/invite` | Página estática de invitaciones (Netlify): abre la app desde un link https o lleva a la descarga. |
 | `packages/core` | Lógica de dominio en TypeScript: repartos, redondeos, balances, simplificación de deudas y registro personal. |
 | `supabase/migrations` | Esquema de Postgres, seguridad por fila (RLS), funciones RPC, vistas y categorías. |
 | `supabase/tests` | Tests de la base de datos con PGlite (Postgres en WebAssembly, sin Docker). |

@@ -1,15 +1,14 @@
 import { simplifyDebts } from '@clear-accounts/core';
-import * as Linking from 'expo-linking';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, Share, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { Money } from '../components/Money';
 import { space, useTheme } from '../components/theme';
 import { Button, Card, Chip, ChipRow, Empty, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
 import { groupActivity } from '../lib/activity';
-import { addGuestMember, createInvite, deleteGroup, removeMember, renameMember, setGroupImage } from '../lib/api';
+import { addGuestMember, deleteGroup, removeMember, renameMember, setGroupImage } from '../lib/api';
 import { useUserId } from '../lib/auth';
 import { confirm } from '../lib/confirm';
 import { shortDate } from '../lib/dates';
@@ -88,10 +87,8 @@ export default function GroupDetailScreen() {
     );
   const g = group.data;
 
-  async function invite() {
-    const token = await createInvite(g.id, userId);
-    const url = Linking.createURL(`join/${token}`);
-    await Share.share({ message: t.groups.inviteMessage(g.name, url) });
+  function invite() {
+    router.push({ pathname: '/invite', params: { groupId: g.id } });
   }
 
   async function runMemberAction(action: () => Promise<void>) {

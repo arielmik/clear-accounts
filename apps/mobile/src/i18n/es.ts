@@ -70,6 +70,12 @@ export const es = {
     owed: (amount: string) => `queda con ${amount} a favor`,
     save: 'Registrar pago',
   },
+  invite: {
+    title: 'Invitar al grupo',
+    scan: 'Que escaneen este código con la cámara del celular, o compartí el link.',
+    share: 'Compartir link',
+    expires: 'La invitación vence en 14 días. Cada vez que abrís esta pantalla se genera una nueva.',
+  },
   updates: {
     available: 'Hay una versión nueva. Tocá acá para actualizar.',
   },
@@ -129,8 +135,8 @@ export const es = {
       fromIsMe ? `Le pagaste a ${to}` : toIsMe ? `${from} te pagó` : `${from} le pagó a ${to}`,
     confirmDeletePayment: (text: string, amount: string) => `¿Eliminar el pago "${text}" por ${amount}?`,
     guestName: 'Nombre',
-    invite: 'Invitar por link',
-    inviteMessage: (group: string, url: string) => `Sumate a "${group}" en Clear Accounts: ${url}`,
+    invite: 'Invitar (QR o link)',
+    inviteMessage: (group: string, url: string) => `Sumate a "${group}" en Clear Accounts 👉 ${url}`,
     expenses: 'Gastos',
     noExpenses: 'Sin gastos todavía.',
     balances: 'Balances',
