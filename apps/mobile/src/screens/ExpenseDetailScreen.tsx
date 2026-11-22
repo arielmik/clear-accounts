@@ -1,14 +1,25 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
+import { CategoryPicker } from '../components/CategoryPicker';
 import { Money } from '../components/Money';
 import { space, useTheme } from '../components/theme';
-import { Button, Card, ErrorState, Label, Loading, Row, Screen } from '../components/ui';
+import { Button, Card, Chip, ErrorState, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
 import { useUserId } from '../lib/auth';
 import { categoryEmoji, categoryIndex } from '../lib/categories';
 import { confirm } from '../lib/confirm';
+import { setMyCategoryOverride } from '../lib/api';
 import { friendlyError } from '../lib/errors';
-import { useCategories, useDeleteExpense, useExpense, useGroup, useRefreshAll } from '../lib/queries';
+import {
+  useCategories,
+  useDeleteExpense,
+  useExpense,
+  useGroup,
+  useInvalidateCategories,
+  useMyCategoryOverride,
+  useRefreshAll,
+} from '../lib/queries';
 
 export default function ExpenseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,6 +30,21 @@ export default function ExpenseDetailScreen() {
   const categories = useCategories();
   const del = useDeleteExpense();
   const refreshAll = useRefreshAll();
+  const override = useMyCategoryOverride(id, userId);
+  const invalidateCategories = useInvalidateCategories();
+  const [picking, setPicking] = useState(false);
+  const [overrideError, setOverrideError] = useState<string | null>(null);
+
+  async function chooseMyCategory(categoryId: string | null) {
+    setOverrideError(null);
+    try {
+      await setMyCategoryOverride(id, userId, categoryId);
+      await invalidateCategories();
+      setPicking(false);
+    } catch (err) {
+      setOverrideError(friendlyError(err));
+    }
+  }
 
   if (expense.isLoading) return <Loading />;
   if (expense.error || !expense.data)
@@ -74,6 +100,31 @@ export default function ExpenseDetailScreen() {
           />
         ) : null}
       </Card>
+
+      {!isPersonal && myShare > 0 ? (
+        <Card>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Label>{t.expense.myCategory}</Label>
+            <Chip label={picking ? t.common.cancel : t.expense.change} onPress={() => setPicking(!picking)} />
+          </Row>
+          <Text style={{ color: theme.text, fontSize: 16 }}>
+            {(() => {
+              const mine = override.data ? index.byId.get(override.data) : category;
+              return `${categoryEmoji(index.rootOf(mine?.id ?? null))} ${mine?.name ?? t.ledger.uncategorized}`;
+            })()}
+          </Text>
+          <Text style={{ color: theme.muted, fontSize: 13 }}>{t.expense.myCategoryHint}</Text>
+          {picking ? (
+            <View style={{ gap: space.sm }}>
+              <CategoryPicker value={override.data ?? null} onChange={(c) => c && void chooseMyCategory(c)} />
+              {override.data ? (
+                <Chip label={t.expense.useGroupCategory} onPress={() => void chooseMyCategory(null)} />
+              ) : null}
+            </View>
+          ) : null}
+          {overrideError ? <Text style={{ color: theme.negative }}>{overrideError}</Text> : null}
+        </Card>
+      ) : null}
 
       {!isPersonal ? (
         <>

@@ -397,3 +397,103 @@ describe('endurecimiento', () => {
     expect(cats).toEqual({ n: 33 });
   });
 });
+
+describe('categorías propias', () => {
+  it('cada uno crea las suyas y no ve las de otros', async () => {
+    const food = (await db.query<{ id: string }>(`select id from categories where system_key = 'food'`)).rows[0]!.id;
+    const mine = await as(ANA, async (tx) =>
+      (await tx.query<{ id: string }>(
+        `insert into categories (owner_id, name, icon, parent_id) values ($1, 'Café de especialidad', '☕', $2) returning id`,
+        [ANA, food],
+      )).rows[0]!.id,
+    );
+    const seen = await as(BETO, async (tx) => (await tx.query('select id from categories where id = $1', [mine])).rows);
+    expect(seen).toEqual([]);
+    // Beto no puede colgar una categoría de la de Ana.
+    await expect(
+      as(BETO, (tx) => tx.query(`insert into categories (owner_id, name, parent_id) values ($1, 'X', $2)`, [BETO, mine])),
+    ).rejects.toThrow(/row-level security/);
+    // Ni crear categorías a nombre de otro.
+    await expect(
+      as(BETO, (tx) => tx.query(`insert into categories (owner_id, name) values ($1, 'X')`, [ANA])),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it('no se puede recategorizar con una categoría ajena', async () => {
+    const anaCat = (await db.query<{ id: string }>(`select id from categories where owner_id = $1 limit 1`, [ANA])).rows[0]!.id;
+    const exp = (await db.query<{ id: string }>(`select id from expenses where description = 'Café'`)).rows[0]!.id;
+    await expect(
+      as(BETO, (tx) =>
+        tx.query('insert into share_category_overrides (user_id, expense_id, category_id) values ($1, $2, $3)', [BETO, exp, anaCat]),
+      ),
+    ).rejects.toThrow(/row-level security/);
+  });
+});
+
+describe('eliminar grupo', () => {
+  let groupId: string;
+  let a: string;
+  let e: string;
+
+  beforeAll(async () => {
+    groupId = await as(ANA, async (tx) =>
+      (await tx.query<{ id: string }>(`select create_group('Para borrar', 'other', 'ARS') as id`)).rows[0]!.id,
+    );
+    a = await memberId(groupId, ANA);
+    e = (
+      await as(ANA, async (tx) =>
+        (await tx.query<{ id: string }>(`insert into group_members (group_id, display_name) values ($1, 'Invitada') returning id`, [groupId])).rows[0]!.id,
+      )
+    );
+    await as(ANA, (tx) =>
+      tx.query('select save_expense($1)', [
+        {
+          group_id: groupId, description: 'Regalo', amount_minor: 1000, currency: 'ARS',
+          payers: [{ member_id: a, amount_minor: 1000 }],
+          shares: [{ member_id: a, amount_minor: 500 }, { member_id: e, amount_minor: 500 }],
+        },
+      ]),
+    );
+  });
+
+  it('con saldos pendientes no se puede eliminar', async () => {
+    await expect(as(ANA, (tx) => tx.query('select delete_group($1)', [groupId]))).rejects.toThrow(/GROUP_NOT_SETTLED/);
+  });
+
+  it('un no-miembro no puede eliminarlo', async () => {
+    await expect(as(EVA, (tx) => tx.query('select delete_group($1)', [groupId]))).rejects.toThrow(/NOT_A_MEMBER/);
+  });
+
+  it('saldado, se elimina; sus gastos siguen en el registro personal y no se cargan nuevos', async () => {
+    await as(ANA, (tx) =>
+      tx.query(
+        `insert into settlements (group_id, from_member_id, to_member_id, amount_minor, currency, created_by) values ($1, $2, $3, 500, 'ARS', $4)`,
+        [groupId, e, a, ANA],
+      ),
+    );
+    await as(ANA, (tx) => tx.query('select delete_group($1)', [groupId]));
+    const deleted = await db.query<{ deleted_at: string | null }>('select deleted_at from groups where id = $1', [groupId]);
+    expect(deleted.rows[0]!.deleted_at).not.toBeNull();
+
+    const ledger = await as(ANA, async (tx) =>
+      (await tx.query(`select description from my_ledger where group_id = $1`, [groupId])).rows,
+    );
+    expect(ledger).toEqual([{ description: 'Regalo' }]);
+
+    await expect(
+      as(ANA, (tx) =>
+        tx.query('select save_expense($1)', [
+          {
+            group_id: groupId, description: 'Tarde', amount_minor: 100, currency: 'ARS',
+            payers: [{ member_id: a, amount_minor: 100 }], shares: [{ member_id: a, amount_minor: 100 }],
+          },
+        ]),
+      ),
+    ).rejects.toThrow(/GROUP_DELETED/);
+  });
+
+  it('el grupo personal no se puede eliminar', async () => {
+    const personal = await personalGroup(ANA);
+    await expect(as(ANA, (tx) => tx.query('select delete_group($1)', [personal]))).rejects.toThrow(/CANNOT_DELETE_PERSONAL/);
+  });
+});

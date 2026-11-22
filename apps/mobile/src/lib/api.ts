@@ -34,9 +34,10 @@ export async function fetchCategories(): Promise<Category[]> {
   return unwrap(
     await supabase
       .from('categories')
-      .select('id, parent_id, owner_id, system_key, name, icon, sort_order')
-      .is('archived_at', null)
-      .order('sort_order'),
+      // Incluye archivadas: los gastos viejos las siguen mostrando (el selector las oculta).
+      .select('id, parent_id, owner_id, system_key, name, icon, sort_order, archived_at')
+      .order('sort_order')
+      .order('name'),
   ) as Category[];
 }
 
@@ -199,4 +200,45 @@ export async function setGroupImage(groupId: string, path: string | null): Promi
 
 export async function setMyAvatar(path: string | null): Promise<void> {
   unwrap(await supabase.rpc('set_my_avatar', { p_path: path }));
+}
+
+export async function createCategory(input: { ownerId: string; name: string; icon: string | null; parentId: string | null }) {
+  unwrap(
+    await supabase.from('categories').insert({
+      owner_id: input.ownerId,
+      name: input.name,
+      icon: input.icon,
+      parent_id: input.parentId,
+      sort_order: 500,
+    }),
+  );
+}
+
+export async function updateCategory(id: string, patch: { name?: string; icon?: string | null; archived_at?: string | null }) {
+  unwrap(await supabase.from('categories').update(patch).eq('id', id));
+}
+
+/** Mi categoría privada para mi parte de un gasto compartido (null = la del grupo). */
+export async function fetchMyCategoryOverride(expenseId: string, userId: string): Promise<string | null> {
+  const rows = unwrap(
+    await supabase.from('share_category_overrides').select('category_id').eq('expense_id', expenseId).eq('user_id', userId),
+  ) as { category_id: string }[];
+  return rows[0]?.category_id ?? null;
+}
+
+export async function setMyCategoryOverride(expenseId: string, userId: string, categoryId: string | null): Promise<void> {
+  if (categoryId === null) {
+    unwrap(await supabase.from('share_category_overrides').delete().eq('expense_id', expenseId).eq('user_id', userId));
+  } else {
+    unwrap(
+      await supabase
+        .from('share_category_overrides')
+        .upsert({ user_id: userId, expense_id: expenseId, category_id: categoryId }, { onConflict: 'user_id,expense_id' }),
+    );
+  }
+}
+
+/** Baja lógica del grupo; la base la rechaza si hay saldos pendientes. */
+export async function deleteGroup(groupId: string): Promise<void> {
+  unwrap(await supabase.rpc('delete_group', { p_group_id: groupId }));
 }

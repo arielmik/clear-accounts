@@ -12,6 +12,7 @@ export const keys = {
   expense: (id: string) => ['expense', id] as const,
   profile: (userId: string) => ['profile', userId] as const,
   settlements: (groupId: string) => ['settlements', groupId] as const,
+  override: (expenseId: string) => ['override', expenseId] as const,
 };
 
 export const useGroups = () => useQuery({ queryKey: keys.groups, queryFn: api.fetchGroups });
@@ -26,6 +27,20 @@ export const useLedger = (from: string, to: string) =>
   useQuery({ queryKey: keys.ledger(from, to), queryFn: () => api.fetchLedger(from, to) });
 
 export const useExpense = (id: string) => useQuery({ queryKey: keys.expense(id), queryFn: () => api.fetchExpense(id) });
+export const useMyCategoryOverride = (expenseId: string, userId: string) =>
+  useQuery({ queryKey: keys.override(expenseId), queryFn: () => api.fetchMyCategoryOverride(expenseId, userId) });
+
+/** Tras cambiar categorías: refrescar categorías, registro personal y recategorizaciones. */
+export function useInvalidateCategories() {
+  const qc = useQueryClient();
+  return () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: keys.categories }),
+      qc.invalidateQueries({ queryKey: ['ledger'] }),
+      qc.invalidateQueries({ queryKey: ['override'] }),
+    ]);
+}
+
 export const useSettlements = (groupId: string) =>
   useQuery({ queryKey: keys.settlements(groupId), queryFn: () => api.fetchSettlements(groupId) });
 export const useProfile = (userId: string) =>

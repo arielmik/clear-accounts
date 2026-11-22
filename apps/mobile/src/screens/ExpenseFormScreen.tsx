@@ -1,12 +1,12 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-native';
+import { CategoryPicker } from '../components/CategoryPicker';
 import { DateField } from '../components/DateField';
 import { radius, space, useTheme } from '../components/theme';
 import { Button, Chip, ChipRow, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
 import { useUserId } from '../lib/auth';
-import { categoryEmoji, categoryIndex } from '../lib/categories';
 import { isoDate } from '../lib/dates';
 import { friendlyError } from '../lib/errors';
 import {
@@ -97,7 +97,6 @@ function ExpenseForm({
   onChangeGroup: (id: string, current: Carry) => void;
 }) {
   const theme = useTheme();
-  const categories = useCategories();
   const save = useSaveExpense();
   const members = activeMembers(group);
   const myMemberId = members.find((m) => m.user_id === userId)?.id ?? '';
@@ -108,13 +107,19 @@ function ExpenseForm({
   );
   const [error, setError] = useState<string | null>(null);
   const isPersonal = group.kind === 'personal';
-  const index = useMemo(() => categoryIndex(categories.data ?? []), [categories.data]);
-  const selectedRoot = index.rootOf(form.categoryId);
 
   const set = <K extends keyof ExpenseFormState>(key: K, value: ExpenseFormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
   useEffect(() => setError(null), [form]);
+
+  // Una categoría propia no puede quedar en un gasto de grupo (los demás no la verían).
+  const categories = useCategories();
+  useEffect(() => {
+    if (isPersonal || !form.categoryId || !categories.data) return;
+    const c = categories.data.find((x) => x.id === form.categoryId);
+    if (c?.owner_id) setForm((f) => ({ ...f, categoryId: null }));
+  }, [isPersonal, form.categoryId, categories.data]);
 
   const amount = parseAmount(form.amountText, group.currency) ?? 0;
   const nameOf = (id: string) => {
@@ -198,30 +203,9 @@ function ExpenseForm({
           ))}
         </ChipRow>
 
-        {/* 4. Categoría: primer nivel y, opcionalmente, subcategoría */}
+        {/* 4. Categoría (en grupos, solo las del sistema: las propias no las verían los demás) */}
         <Label>{t.expense.category}</Label>
-        <ChipRow>
-          {index.roots.map((c) => (
-            <Chip
-              key={c.id}
-              label={`${categoryEmoji(c)} ${c.name}`}
-              selected={selectedRoot?.id === c.id}
-              onPress={() => set('categoryId', selectedRoot?.id === c.id ? null : c.id)}
-            />
-          ))}
-        </ChipRow>
-        {selectedRoot && index.childrenOf(selectedRoot.id).length > 0 ? (
-          <ChipRow>
-            {index.childrenOf(selectedRoot.id).map((c) => (
-              <Chip
-                key={c.id}
-                label={c.name}
-                selected={form.categoryId === c.id}
-                onPress={() => set('categoryId', form.categoryId === c.id ? selectedRoot.id : c.id)}
-              />
-            ))}
-          </ChipRow>
-        ) : null}
+        <CategoryPicker value={form.categoryId} onChange={(id) => set('categoryId', id)} systemOnly={!isPersonal} />
 
         {/* 5. Quién pagó y cómo se reparte (solo en grupos compartidos) */}
         {!isPersonal ? (

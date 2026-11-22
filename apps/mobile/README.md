@@ -15,6 +15,7 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
    - `20261122000200_images_realtime.sql` (crea el bucket privado `images` y activa el tiempo real)
    - `20261122000300_fix_payment_dates.sql`
    - `20261122000400_hardening.sql`
+   - `20261123000000_categories_delete_group.sql`
 
    Ojo: hay que pegar el SQL de adentro del archivo, no la ruta: el editor no lee archivos del repo.
 3. En **Authentication → Sign In / Providers → Email**, desactivar **Confirm email** (para el MVP de familia y amigos; se reactiva antes del lanzamiento público).
@@ -78,7 +79,7 @@ src/
 │   │   ├── (home)/           # Inicio → detalle de gasto, "Te deben" / "Debés"
 │   │   ├── groups/           # Grupos → detalle de grupo → detalle de gasto
 │   │   ├── ledger/           # Mis gastos → detalle de gasto
-│   │   └── profile.tsx       # perfil editable
+│   │   └── profile/          # Perfil → Mis categorías
 │   ├── expense-form.tsx      # modal: nuevo gasto / editar (?id=)
 │   ├── group-form.tsx        # modal: nuevo grupo
 │   ├── settle-form.tsx       # modal: registrar pago (monto editable)

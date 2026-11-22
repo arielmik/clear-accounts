@@ -9,7 +9,7 @@ import { space, useTheme } from '../components/theme';
 import { Button, Card, Chip, ChipRow, Empty, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
 import { groupActivity } from '../lib/activity';
-import { addGuestMember, createInvite, removeMember, renameMember, setGroupImage } from '../lib/api';
+import { addGuestMember, createInvite, deleteGroup, removeMember, renameMember, setGroupImage } from '../lib/api';
 import { useUserId } from '../lib/auth';
 import { confirm } from '../lib/confirm';
 import { shortDate } from '../lib/dates';
@@ -140,6 +140,16 @@ export default function GroupDetailScreen() {
     } finally {
       setImageBusy(false);
     }
+  }
+
+  const allSettled = (balances.data ?? []).every((b) => b.balance_minor === 0);
+
+  async function removeGroup() {
+    if (!(await confirm(t.groups.confirmDeleteGroup(g.name), t.groups.deleteGroup, t.common.cancel))) return;
+    await runMemberAction(async () => {
+      await deleteGroup(g.id);
+      router.back();
+    });
   }
 
   async function removeImage() {
@@ -356,6 +366,12 @@ export default function GroupDetailScreen() {
               disabled={!guestName.trim()}
             />
           </Row>
+          <View style={{ marginTop: space.xl, gap: space.xs }}>
+            <Button title={t.groups.deleteGroup} variant="secondary" onPress={removeGroup} disabled={!allSettled} />
+            {!allSettled ? (
+              <Text style={{ color: theme.muted, fontSize: 13, textAlign: 'center' }}>{t.groups.deleteGroupHint}</Text>
+            ) : null}
+          </View>
         </>
       ) : null}
     </Screen>

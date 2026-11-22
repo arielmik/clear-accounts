@@ -27,6 +27,7 @@ export interface Category {
   name: string;
   icon: string | null;
   sort_order: number;
+  archived_at: string | null;
 }
 
 export interface ExpenseRow {

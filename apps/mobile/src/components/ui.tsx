@@ -192,6 +192,6 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, padding: space.lg, gap: space.sm },
   button: { borderRadius: radius.md, paddingVertical: 14, paddingHorizontal: space.lg, alignItems: 'center' },
   buttonText: { fontSize: 16, fontWeight: '700' },
-  input: { borderRadius: radius.md, borderWidth: 1, paddingHorizontal: space.md, paddingVertical: 12, fontSize: 16 },
+  input: { borderRadius: radius.md, borderWidth: 1, paddingHorizontal: space.md, paddingVertical: 12, fontSize: 16, minWidth: 0 },
   chip: { borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
 });

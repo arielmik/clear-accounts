@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
@@ -138,6 +139,7 @@ export default function ProfileScreen() {
           disabled={!email.trim() || email.trim() === session?.user.email}
         />
       </Card>
+      <Button title={`🏷️ ${t.profile.myCategories}`} variant="secondary" onPress={() => router.push('/profile/categories')} />
       <Button title={t.auth.signOut} variant="secondary" onPress={() => supabase.auth.signOut()} />
       <Text style={{ color: theme.muted, textAlign: 'center', fontSize: 12 }}>
         {t.appName} v{Constants.expoConfig?.version ?? '?'} · {buildInfo()}
