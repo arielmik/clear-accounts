@@ -11,7 +11,7 @@
 | 3 | Categorías | Ambas: categorías del sistema (con subcategorías) + categorías propias de cada usuario. |
 | 4 | Privacidad | La recategorización personal de un gasto de grupo es **privada**: el resto del grupo no la ve. |
 | 5 | Offline | Fuera del MVP. El modelo queda preparado (UUIDs generados en el cliente, `updated_at` + `version`). |
-| 6 | Alcance | MVP para familia y amigos; arquitectura lista para producto comercial público (ver §9). |
+| 6 | Alcance | MVP para familia y amigos; arquitectura lista para producto comercial público (ver §8). |
 | 7 | Gasto personal | Se modela como gasto en el **grupo personal** del usuario (un grupo oculto de un solo miembro, creado al registrarse). Un único modelo, una única política de seguridad. |
 | 8 | Redondeo | Método del resto mayor: los centavos sobrantes van a quien tenga mayor fracción (empate: orden de la lista). Determinístico y justo. |
 
@@ -177,7 +177,7 @@ Vista del usuario = todas sus `expense_shares` (de grupos + personales), con:
 - Presupuestos por categoría y alertas.
 - Modo offline con sincronización.
 - Inglés, borrado de cuenta y exportación de datos (requisitos de tiendas y privacidad).
-- Plan gratuito / premium.
+- Plan gratuito / premium y pase de viaje (ver §9).
 - Notificaciones push ("Ana agregó un gasto en Casa").
 
 **v3 (para soñar en grande)**
@@ -231,11 +231,130 @@ El MVP es para familia y amigos, pero estas decisiones se toman ahora porque cam
 | **Offline / sync** | UUIDs generables en el cliente, `updated_at`, `version`, borrado lógico. | Motor de sync (PowerSync / WatermelonDB) y resolución de conflictos. |
 | **Ambientes** | Migraciones versionadas en el repo. | Proyectos Supabase separados: dev / staging / prod. CI/CD con EAS. |
 | **Privacidad y legales** | Datos personales mínimos; recategorización privada. | Términos, política de privacidad, **borrado de cuenta** (obligatorio en App Store/Play: anonimizar el miembro y conservar los gastos del grupo), exportación de datos. |
-| **Monetización** | — | Tabla de suscripciones/planes + `entitlements`, chequeados en RPC (no en el cliente). Compras in-app con RevenueCat. |
+| **Monetización** | — | Modelo freemium con `entitlements` chequeados en la base (no en el cliente) y compras in-app con RevenueCat. Ver §9. |
 | **Observabilidad** | `activity_log` por grupo. | Sentry (errores), analytics con opt-in (PostHog), métricas de negocio. |
 | **Calidad** | Tests de dominio y de base (RLS incluida) en CI. | Tests E2E de la app (Maestro). |
 
-## 9. Estado y próximos pasos
+## 9. Monetización
+
+> Estado: propuesta. Nada de esto se implementa antes de la beta pública (v2).
+
+### 9.1 Principio rector: lo de grupos no se cobra
+
+La app crece por invitaciones: cada grupo nuevo suma 3–4 personas. Cobrar por cargar, repartir o saldar gastos de grupo frena ese crecimiento (es el error que cometió Splitwise al limitar gastos diarios en su plan gratis). Por eso:
+
+- **Gratis para siempre:** todo lo necesario para compartir gastos en grupo y llevar el registro personal básico.
+- **Premium:** lo que nos diferencia (inteligencia sobre tus finanzas personales) y lo que cuesta mantener (IA, almacenamiento).
+- **Nunca se retienen datos:** al bajar de plan no se pierde nada (ver §9.6). La exportación completa de datos es gratis (requisito de privacidad y de tiendas). Premium agrega reportes con formato.
+
+### 9.2 Qué incluye cada plan
+
+| Función | Gratis | Premium | Alcance |
+|---|---|---|---|
+| Grupos, miembros, invitaciones | Ilimitados | Ilimitados | — |
+| Gastos de grupo y personales | Ilimitados | Ilimitados | — |
+| Los 4 tipos de reparto, balances, simplificación, pagos | ✓ | ✓ | — |
+| Reporte mensual por categoría | ✓ | ✓ | — |
+| Exportación completa de datos (CSV/JSON) | ✓ | ✓ | — |
+| Categorías propias | Hasta 5 | Ilimitadas | Usuario |
+| Reportes avanzados (tendencias, comparativas mes a mes, por grupo) | — | ✓ | Usuario |
+| Presupuestos por categoría y alertas | — | ✓ | Usuario |
+| Gastos recurrentes | — | ✓ | Usuario |
+| Lectura de tickets y categorización automática con IA | — | ✓ (con límite mensual razonable) | Usuario |
+| Exportación a Excel con formato | — | ✓ | Usuario |
+| Multi-moneda con tipo de cambio por gasto | — | ✓ | **Grupo** |
+| Foto del ticket / adjuntos en gastos | — | ✓ | **Grupo** |
+
+**Alcance "Grupo" = premium compartido:** si al menos un miembro del grupo tiene Premium (o hay un pase de viaje activo en ese grupo), la función se habilita para **todos** los miembros de ese grupo. Así, quien no paga prueba Premium sin costo, lo que empuja la conversión y las invitaciones.
+
+### 9.3 Productos y precios (a validar)
+
+| Producto | Precio de referencia | Notas |
+|---|---|---|
+| Premium mensual | USD 2,49 | Precio regional en las tiendas (ARS, BRL, etc.). |
+| Premium anual | USD 19,99 (≈ 33 % de descuento) | Plan destacado. Prueba gratis de 7 días. |
+| Pase de viaje | USD 4,99 por grupo, 30 días | Compra única. Activa las funciones de alcance "Grupo" en un grupo puntual. Ideal para viajes, el momento de mayor uso. |
+| Premium de por vida | USD 49,99 | **Solo por tiempo limitado al lanzar**, para premiar a los primeros usuarios y conseguir caja temprana. |
+
+Comisiones de tienda: 15 % (Apple Small Business Program y Google Play, mientras se facture menos de USD 1M al año).
+
+### 9.4 Modelo de datos y seguridad
+
+Los permisos se calculan **en la base**, nunca en el cliente: el cliente solo los lee para mostrar u ocultar la interfaz.
+
+```sql
+create type entitlement_source as enum ('subscription', 'lifetime', 'trip_pass', 'promo');
+
+-- Lo que el usuario compró o recibió. Solo lo escribe el backend (service role).
+create table entitlements (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references profiles (id) on delete cascade,
+  source           entitlement_source not null,
+  group_id         uuid references groups (id) on delete cascade, -- solo trip_pass
+  product_id       text not null,           -- id del producto en la tienda / RevenueCat
+  store            text,                    -- 'app_store' | 'play_store' | 'promo'
+  starts_at        timestamptz not null default now(),
+  expires_at       timestamptz,             -- null = no vence (lifetime)
+  revoked_at       timestamptz,             -- reembolsos
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now(),
+  check ((source = 'trip_pass') = (group_id is not null))
+);
+
+-- Eventos del webhook ya procesados (idempotencia).
+create table billing_events (
+  event_id    text primary key,
+  payload     jsonb not null,
+  received_at timestamptz not null default now()
+);
+```
+
+- **RLS:** cada usuario solo puede leer sus filas de `entitlements`. Nadie escribe desde el cliente. `billing_events` no es accesible desde el cliente.
+- **`is_premium(p_user uuid) returns boolean`:** hay un entitlement de usuario (no `trip_pass`) vigente y no revocado.
+- **`can_use(p_feature text, p_group uuid default null) returns boolean`** (security definer, stable): decide según el alcance de la función.
+  - Alcance usuario: `is_premium(auth.uid())`.
+  - Alcance grupo: algún miembro de `p_group` es premium **o** hay un `trip_pass` vigente para `p_group`.
+- **Dónde se aplica:**
+  - `save_expense` rechaza una moneda distinta a la del grupo si `can_use('multi_currency', group)` es falso.
+  - Un trigger en `categories` limita a 5 las categorías propias sin Premium.
+  - Los RPCs de IA, presupuestos y recurrentes chequean `can_use` al entrar.
+- **Interruptor general:** un flag de configuración `billing_enforced` (desactivado por defecto) hace que `can_use` devuelva siempre `true`. Permite tener la infraestructura en producción y medir el uso antes de activar el cobro.
+
+### 9.5 Flujo de compra
+
+1. La app usa el **SDK de RevenueCat** (compatible con Expo vía development build) con `app_user_id` igual al `id` de Supabase del usuario.
+2. La compra la procesa la tienda. RevenueCat la valida.
+3. RevenueCat llama a una **Edge Function** (`billing-webhook`) que verifica el header secreto, descarta eventos repetidos (`billing_events`) y crea o actualiza `entitlements` (alta, renovación, cancelación, vencimiento, reembolso).
+4. La app escucha cambios en `entitlements` por Realtime (o refresca al volver) y actualiza la interfaz.
+5. **"Restaurar compras"** visible en Perfil (requisito de App Store).
+
+### 9.6 Al bajar de plan
+
+- Los datos creados con Premium **no se borran ni se ocultan**: los gastos multi-moneda y los adjuntos siguen visibles, y la exportación completa sigue disponible.
+- Lo que se pausa: crear nuevos gastos multi-moneda o adjuntos, la generación automática de recurrentes, las alertas de presupuesto y la IA.
+- Las categorías propias por encima del tope siguen existiendo y usables. Solo no se pueden crear nuevas.
+
+### 9.7 Lo que descartamos
+
+| Opción | Por qué no |
+|---|---|
+| Publicidad | Anuncios al lado de datos financieros generan desconfianza. Con pocos usuarios rinde centavos. |
+| Vender datos agregados | Aunque sean anónimos, rompe la confianza, que es todo el producto. |
+| Limitar gastos de grupo | Frena el crecimiento por invitaciones (§9.1). |
+
+**Para más adelante (v3+):** liquidar con Mercado Pago desde la app (más retención que ingreso, con temas regulatorios), afiliados financieros transparentes (billeteras, tarjetas para viajes) y planes para grupos estables (casas compartidas, consorcios, clubes) con roles y reportes para administradores.
+
+### 9.8 Fases y métricas
+
+| Fase | Qué se hace | Qué se mide |
+|---|---|---|
+| **MVP (hoy)** | Nada. Familia y amigos. | Uso real, retención. |
+| **v2 beta** | Tablas, `can_use`, webhook y paywall construidos, con `billing_enforced` apagado. Eventos de analytics por función Premium. | Qué funciones Premium se usan más, y quiénes las usan. |
+| **Lanzamiento Premium** | Encender el cobro. Prueba de 7 días en el anual. Por vida solo en la ventana de lanzamiento. Pase de viaje junto con multi-moneda. | Conversión a pago (objetivo: 2–5 % de usuarios activos), retención a 30 días, invitaciones por usuario (no debe bajar), ingreso mensual recurrente, cancelaciones. |
+
+**Decisiones pendientes:** precios finales por región, duración de la prueba, tope de categorías gratis y límite mensual de IA (según el costo real por ticket).
+
+## 10. Estado y próximos pasos
 
 **Hecho**
 - Dominio (`packages/core`), esquema + RLS + RPCs (`supabase/`), con tests.
