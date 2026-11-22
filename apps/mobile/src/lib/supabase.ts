@@ -8,6 +8,12 @@ const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
+/** Variables faltantes, para mostrarlas en la pantalla de configuración. */
+export const missingEnvVars = [
+  url ? null : 'EXPO_PUBLIC_SUPABASE_URL',
+  anonKey ? null : 'EXPO_PUBLIC_SUPABASE_ANON_KEY',
+].filter((v): v is string => v !== null);
+
 export const supabase = createClient(url ?? 'http://localhost', anonKey ?? 'missing', {
   auth: {
     storage: AsyncStorage,

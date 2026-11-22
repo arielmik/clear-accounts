@@ -7,7 +7,7 @@ import { useTheme } from '../components/theme';
 import { Body, Screen, Title } from '../components/ui';
 import { t } from '../i18n';
 import { AuthProvider, useAuth } from '../lib/auth';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured, missingEnvVars } from '../lib/supabase';
 
 function RootNavigator() {
   const { session, loading } = useAuth();
@@ -43,6 +43,11 @@ function MissingConfig() {
     <Screen>
       <Title>{t.config.title}</Title>
       <Body>{t.config.body}</Body>
+      <Body style={{ fontWeight: '700' }}>{t.config.missing}</Body>
+      {missingEnvVars.map((v) => (
+        <Body key={v} style={{ fontFamily: 'monospace' }}>• {v}</Body>
+      ))}
+      <Body>{t.config.hint}</Body>
     </Screen>
   );
 }

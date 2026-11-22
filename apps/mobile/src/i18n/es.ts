@@ -24,7 +24,9 @@ export const es = {
   },
   config: {
     title: 'Falta configurar Supabase',
-    body: 'Copiá apps/mobile/.env.example a apps/mobile/.env, completá la URL y la clave de tu proyecto y reiniciá la app.',
+    body: 'Creá el archivo apps/mobile/.env (no en la carpeta raíz) con la URL y la clave de tu proyecto, y reiniciá con: npx expo start --clear',
+    missing: 'Faltan estas variables:',
+    hint: 'Al arrancar, la terminal tiene que mostrar "env: load .env". Si no aparece, el archivo no está en apps/mobile o se llama distinto (por ejemplo .env.txt).',
   },
   tabs: { home: 'Inicio', groups: 'Grupos', ledger: 'Mis gastos', profile: 'Perfil' },
   home: {

@@ -20,7 +20,7 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
 ```bash
 cp apps/mobile/.env.example apps/mobile/.env   # y completar los dos valores
 npm install
-npm run start -w @clear-accounts/mobile
+npm run start -w @clear-accounts/mobile   # debe mostrar "env: load .env"
 ```
 
 Escanear el QR con **Expo Go** (iOS / Android). También corre en el navegador con la tecla `w`.
