@@ -69,6 +69,9 @@ Al terminar, EAS muestra un link para descargar e instalar el APK en el celular.
 npm run publish -- --message "Qué cambió"
 ```
 
+La huella (runtime) se calcula igual en Windows, Linux y EAS: `fingerprint.config.js`
+ignora los `.gitignore`, cuyos finales de línea cambian según el sistema.
+
 Los celulares descargan la versión nueva al abrir la app o al volver a ella, y muestran
 un aviso para aplicarla. Si un cambio agrega una librería con código nativo, el runtime
 (fingerprint) cambia y hace falta un APK nuevo con `npm run build:android`.
