@@ -36,3 +36,6 @@ alter table storage.objects enable row level security;
 grant usage on schema storage to authenticated;
 grant select, insert, delete on storage.objects to authenticated;
 create publication supabase_realtime;
+
+-- Como en Supabase: las funciones nuevas nacen ejecutables por anon (y por todos).
+alter default privileges in schema public grant execute on functions to anon;

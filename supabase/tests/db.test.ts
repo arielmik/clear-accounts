@@ -497,3 +497,13 @@ describe('eliminar grupo', () => {
     await expect(as(ANA, (tx) => tx.query('select delete_group($1)', [personal]))).rejects.toThrow(/CANNOT_DELETE_PERSONAL/);
   });
 });
+
+describe('convención de seguridad', () => {
+  it('ninguna función pública es ejecutable sin sesión (anon)', async () => {
+    const r = await db.query<{ proname: string }>(
+      `select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute')`,
+    );
+    expect(r.rows.map((x) => x.proname)).toEqual([]);
+  });
+});

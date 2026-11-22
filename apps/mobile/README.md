@@ -16,6 +16,11 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
    - `20261122000300_fix_payment_dates.sql`
    - `20261122000400_hardening.sql`
    - `20261123000000_categories_delete_group.sql`
+   - `20261123000100_revoke_anon.sql`
+
+   Convención: toda migración que cree funciones termina con
+   `revoke execute on all functions in schema public from public, anon;`
+   (un test lo verifica).
 
    Ojo: hay que pegar el SQL de adentro del archivo, no la ruta: el editor no lee archivos del repo.
 3. En **Authentication → Sign In / Providers → Email**, desactivar **Confirm email** (para el MVP de familia y amigos; se reactiva antes del lanzamiento público).
