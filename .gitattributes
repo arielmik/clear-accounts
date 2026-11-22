@@ -1,0 +1,6 @@
+# Finales de línea LF en el repo para todos los archivos de texto,
+# así Windows (CRLF) no los marca como modificados.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
