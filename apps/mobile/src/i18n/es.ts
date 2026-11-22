@@ -67,6 +67,9 @@ export const es = {
     owed: (amount: string) => `queda con ${amount} a favor`,
     save: 'Registrar pago',
   },
+  updates: {
+    available: 'Hay una versión nueva. Tocá acá para actualizar.',
+  },
   profile: {
     name: 'Nombre',
     photo: 'Foto',
@@ -126,6 +129,9 @@ export const es = {
     date: 'Fecha',
     splitAmong: 'Repartido entre',
     notFound: 'Este gasto ya no existe.',
+    today: 'Hoy',
+    yesterday: 'Ayer',
+    otherDate: 'Otra fecha',
     amount: 'Monto',
     description: 'Descripción',
     descriptionPlaceholder: '¿En qué gastaste?',

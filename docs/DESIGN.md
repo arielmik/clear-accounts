@@ -240,6 +240,7 @@ El MVP es para familia y amigos, pero estas decisiones se toman ahora porque cam
 **Hecho**
 - Dominio (`packages/core`), esquema + RLS + RPCs (`supabase/`), con tests.
 - App Expo con login, grupos, invitaciones por link, miembros sin cuenta, carga de gastos (4 tipos de reparto), balances con "cómo saldar" y registro de pagos, "Mis gastos" con reporte mensual por categoría, tema claro/oscuro.
+- v0.4: build Android con EAS (perfil `preview`: APK de distribución interna; `production`: AAB para Play Store), actualizaciones por el aire con EAS Update (canal por perfil, runtime por fingerprint, aviso para aplicar), variables de entorno en EAS, ícono propio, fecha del gasto (hoy / ayer / calendario).
 - v0.3: pagos con monto editable (vista previa de cómo queda cada saldo; pagar de más invierte la deuda) y pagos visibles/eliminables en el historial del grupo; actualización en tiempo real (Supabase Realtime, respeta RLS) y al volver a la app; imágenes circulares de grupo y de perfil en Storage privado con URLs firmadas (acceso por RLS: miembros del grupo / dueño y quienes comparten grupo).
 - v0.2 de la app: menú inferior siempre visible (una pila por pestaña), detalle de gasto con edición y borrado, detalle de "Te deben" / "Debés" por persona, perfil editable (nombre y email), edición de miembros (renombrar invitados, quitar solo con saldo cero, regla aplicada en la base), deslizar para actualizar, orden por fecha y momento de carga.
 

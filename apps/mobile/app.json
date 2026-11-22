@@ -2,7 +2,7 @@
   "expo": {
     "name": "Clear Accounts",
     "slug": "clear-accounts",
-    "version": "0.3.2",
+    "version": "0.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0E9F6E",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -26,8 +26,12 @@
     },
     "plugins": [
       "expo-router",
-      "expo-image"
+      "expo-image",
+      "@react-native-community/datetimepicker"
     ],
-    "scheme": "clearaccounts"
+    "scheme": "clearaccounts",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    }
   }
 }

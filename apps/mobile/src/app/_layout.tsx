@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useTheme } from '../components/theme';
+import { UpdateBanner } from '../components/UpdateBanner';
 import { Body, Screen, Title } from '../components/ui';
 import { t } from '../i18n';
 import { AuthProvider, useAuth } from '../lib/auth';
@@ -67,6 +68,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <RootNavigator />
+            <UpdateBanner />
           </AuthProvider>
         </QueryClientProvider>
       ) : (

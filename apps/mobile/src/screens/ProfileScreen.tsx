@@ -11,6 +11,7 @@ import { useAuth, useUserId } from '../lib/auth';
 import { friendlyError } from '../lib/errors';
 import { useInvalidateGroups, useProfile, useRefreshAll } from '../lib/queries';
 import { supabase } from '../lib/supabase';
+import { buildInfo } from '../lib/updates';
 
 type Status = { kind: 'ok' | 'error'; text: string } | null;
 
@@ -139,7 +140,7 @@ export default function ProfileScreen() {
       </Card>
       <Button title={t.auth.signOut} variant="secondary" onPress={() => supabase.auth.signOut()} />
       <Text style={{ color: theme.muted, textAlign: 'center', fontSize: 12 }}>
-        {t.appName} v{Constants.expoConfig?.version ?? '?'}
+        {t.appName} v{Constants.expoConfig?.version ?? '?'} · {buildInfo()}
       </Text>
     </Screen>
   );

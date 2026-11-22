@@ -29,6 +29,43 @@ npm run start -w @clear-accounts/mobile   # debe mostrar "env: load .env"
 
 Escanear el QR con **Expo Go** (iOS / Android). También corre en el navegador con la tecla `w`.
 
+## Publicar para Android (EAS)
+
+La app se compila en la nube de Expo y se instala como APK. Los cambios de código se
+envían después **por el aire** (EAS Update): llegan solos a los celulares, sin reinstalar.
+
+Todos los comandos se ejecutan desde `apps/mobile`.
+
+### Una sola vez
+
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest init
+npx eas-cli@latest update:configure --platform android --environment preview
+npx eas-cli@latest env:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://xxxx.supabase.co" --environment preview --environment production --visibility plaintext
+npx eas-cli@latest env:create --name EXPO_PUBLIC_SUPABASE_KEY --value "sb_publishable_xxxx" --environment preview --environment production --visibility plaintext
+```
+
+`init` y `update:configure` modifican `app.json`: hay que commitear y pushear ese cambio.
+
+### Compilar el APK (primera vez, o cuando cambian dependencias nativas)
+
+```bash
+npm run build:android
+```
+
+Al terminar, EAS muestra un link para descargar e instalar el APK en el celular.
+
+### Publicar cambios por el aire (lo habitual)
+
+```bash
+npm run publish -- --message "Qué cambió"
+```
+
+Los celulares descargan la versión nueva al abrir la app o al volver a ella, y muestran
+un aviso para aplicarla. Si un cambio agrega una librería con código nativo, el runtime
+(fingerprint) cambia y hace falta un APK nuevo con `npm run build:android`.
+
 ## Estructura
 
 ```

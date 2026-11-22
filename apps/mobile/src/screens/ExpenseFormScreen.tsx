@@ -1,6 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-native';
+import { DateField } from '../components/DateField';
 import { radius, space, useTheme } from '../components/theme';
 import { Button, Chip, ChipRow, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
@@ -171,6 +172,10 @@ function ExpenseForm({
           placeholder={t.expense.descriptionPlaceholder}
           returnKeyType="done"
         />
+
+        {/* Fecha: hoy por defecto */}
+        <Label>{t.expense.date}</Label>
+        <DateField value={form.spentAt} onChange={(v) => set('spentAt', v)} />
 
         {/* 3. Grupo (o Personal) */}
         {/* En edición se muestra solo el grupo del gasto. */}
