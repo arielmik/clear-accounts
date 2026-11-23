@@ -6,7 +6,7 @@ App mobile para compartir gastos entre grupos de personas **y** llevar un regist
 - Cada usuario tiene además su libro de gastos personales.
 - Todo gasto de grupo impacta automáticamente en el registro personal de cada participante (por su parte), para poder analizar el consumo por categoría.
 
-Documento de diseño: [docs/DESIGN.md](docs/DESIGN.md)
+Documento de diseño: [docs/DESIGN.md](docs/DESIGN.md) · Guía técnica para aprender el proyecto: [docs/GUIA-DEL-PROYECTO.md](docs/GUIA-DEL-PROYECTO.md)
 
 ## Estructura
 
