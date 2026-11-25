@@ -105,7 +105,10 @@ export async function fetchLedger(from: string, to: string): Promise<LedgerRow[]
 }
 
 export async function saveExpense(payload: SaveExpensePayload): Promise<string> {
-  return unwrap(await supabase.rpc('save_expense', { payload })) as string;
+  const id = unwrap(await supabase.rpc('save_expense', { payload })) as string;
+  // Gasto nuevo: avisar por push al resto del grupo. Si falla, el gasto igual quedó guardado.
+  if (!payload.id) supabase.functions.invoke('notify-expense', { body: { expense_id: id } }).catch(() => {});
+  return id;
 }
 
 export async function createGroup(name: string, kind: Exclude<GroupKind, 'personal'>, currency: string): Promise<string> {

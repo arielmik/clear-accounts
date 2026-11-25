@@ -118,6 +118,13 @@ export const es = {
     changeEmail: 'Cambiar email',
     nameSaved: 'Nombre actualizado.',
     emailSent: 'Te enviamos un email a la dirección nueva para confirmar el cambio. Hasta que lo confirmes, seguís usando la actual.',
+    password: 'Contraseña',
+    newPassword: 'Contraseña nueva (mínimo 6 caracteres)',
+    changePassword: 'Cambiar contraseña',
+    passwordSaved: 'Contraseña actualizada.',
+    notifications: 'Notificaciones',
+    notifyExpenses: 'Avisarme cuando alguien carga un gasto en mis grupos',
+    notificationsDenied: 'Las notificaciones están bloqueadas. Activalas desde los ajustes del celular.',
   },
   groups: {
     title: 'Grupos',

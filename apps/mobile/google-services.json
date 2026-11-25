@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "922621738840",
+    "project_id": "clear-accounts-19a3a",
+    "storage_bucket": "clear-accounts-19a3a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922621738840:android:522749f0fb77f847712f2d",
+        "android_client_info": {
+          "package_name": "app.clearaccounts"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsePLQK0I4u5thUh3bshwxSxrlC5BQbLI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
