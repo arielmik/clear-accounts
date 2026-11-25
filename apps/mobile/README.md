@@ -75,6 +75,18 @@ Al terminar, EAS muestra un link para descargar e instalar el APK en el celular.
 npm run publish -- --message "Qué cambió"
 ```
 
+### Versión web (EAS Hosting)
+
+La app también funciona en el navegador: https://clear-accounts.expo.app
+
+Para publicar una versión nueva (usa las variables del `.env` local, que apuntan a Supabase de producción):
+
+```bash
+npm run deploy:web
+```
+
+En web no hay notificaciones push ni cámara (el ticket se elige de la galería).
+
 La huella (runtime) se calcula igual en Windows, Linux y EAS: `fingerprint.config.js`
 ignora los `.gitignore`, cuyos finales de línea cambian según el sistema.
 
