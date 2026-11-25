@@ -586,6 +586,20 @@ describe('notificaciones push', () => {
     expect((await db.query('select 1 from push_tokens where token = $1', [BETO_TOKEN])).rows.length).toBe(0);
   });
 
+  it('la Edge Function (service_role) reclama el aviso y la transacción confirma', async () => {
+    await as(BETO, (tx) => tx.query(`select register_push_token($1, 'android')`, [BETO_TOKEN]));
+    const id = await newExpense(ANA, casaId, anaCasa);
+    // Como en producción: rol service_role y COMMIT real (los triggers diferidos de expenses corren al confirmar).
+    const r = await db.transaction(async (tx) => {
+      await tx.query('set local role service_role');
+      return tx.query<{ token: string }>('select token from claim_expense_push($1, $2)', [id, ANA]);
+    });
+    expect(r.rows.map((x) => x.token)).toEqual([BETO_TOKEN]);
+    // No deja una "edición" falsa en el historial del gasto.
+    const log = await db.query(`select action from activity_log where entity_id = $1`, [id]);
+    expect(log.rows).toEqual([{ action: 'insert' }]);
+  });
+
   it('la app no puede leer tokens ni pedir los destinatarios', async () => {
     await expect(as(ANA, (tx) => tx.query('select * from push_tokens'))).rejects.toThrow(/permission denied/);
     await expect(
