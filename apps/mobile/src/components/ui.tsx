@@ -173,9 +173,45 @@ export function Chip({ label, selected, onPress }: { label: string; selected?: b
   );
 }
 
+/** Control segmentado: opciones excluyentes siempre visibles, a un toque. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly { key: T; label: string }[];
+  value: T;
+  onChange: (key: T) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View accessibilityRole="tablist" style={[styles.segmented, { backgroundColor: theme.chip }]}>
+      {options.map((o) => {
+        const on = o.key === value;
+        return (
+          <Pressable
+            key={o.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(o.key)}
+            style={[styles.segment, on && { backgroundColor: theme.bg, ...styles.segmentOn }]}
+          >
+            <Text style={{ color: on ? theme.text : theme.muted, fontWeight: '700', fontSize: 14 }}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function ChipRow({ children }: { children: ReactNode }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ flexGrow: 0 }}
+      contentContainerStyle={{ gap: space.sm, alignItems: 'center' }}
+    >
       {children}
     </ScrollView>
   );
@@ -221,4 +257,7 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 16, fontWeight: '700' },
   input: { borderRadius: radius.md, borderWidth: 1.5, paddingHorizontal: space.md, paddingVertical: 12, fontSize: 16, minWidth: 0 },
   chip: { borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  segmented: { flexDirection: 'row', borderRadius: radius.md, padding: 3, gap: 2 },
+  segment: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11 },
+  segmentOn: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
 });

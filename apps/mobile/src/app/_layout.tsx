@@ -40,7 +40,7 @@ function RootNavigator() {
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="group-form" options={{ title: t.groups.new, presentation: 'modal' }} />
-        <Stack.Screen name="expense-form" options={{ title: t.expense.new, presentation: 'modal' }} />
+        <Stack.Screen name="expense-form" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settle-form" options={{ title: t.settle.title, presentation: 'modal' }} />
         <Stack.Screen name="invite" options={{ title: t.invite.title, presentation: 'modal' }} />
       </Stack.Protected>
