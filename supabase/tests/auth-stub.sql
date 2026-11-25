@@ -11,6 +11,7 @@ create function auth.uid() returns uuid language sql stable as $$
 $$;
 create role authenticated nologin;
 create role anon nologin;
+create role service_role nologin bypassrls;
 grant usage on schema auth to authenticated;
 
 -- Peor caso: nada es accesible salvo lo que las migraciones otorgan explícitamente
