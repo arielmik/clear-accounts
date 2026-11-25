@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -129,6 +130,32 @@ export function Input(props: TextInputProps) {
       {...props}
       style={[styles.input, { color: theme.text, backgroundColor: theme.card, borderColor: theme.border }, props.style]}
     />
+  );
+}
+
+/** Campo de contraseña con el "ojito" para mostrar u ocultar lo escrito. */
+export function PasswordInput(props: Omit<TextInputProps, 'secureTextEntry'>) {
+  const theme = useTheme();
+  const [visible, setVisible] = useState(false);
+  return (
+    <View style={{ justifyContent: 'center' }}>
+      <Input
+        autoCapitalize="none"
+        autoCorrect={false}
+        {...props}
+        secureTextEntry={!visible}
+        style={[{ paddingRight: 48 }, props.style]}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={visible ? t.auth.hidePassword : t.auth.showPassword}
+        onPress={() => setVisible((v) => !v)}
+        hitSlop={8}
+        style={{ position: 'absolute', right: 0, paddingHorizontal: space.md, paddingVertical: space.sm }}
+      >
+        <Ionicons name={visible ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.muted} />
+      </Pressable>
+    </View>
   );
 }
 
