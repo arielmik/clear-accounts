@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { space, useTheme } from '../components/theme';
-import { Body, Button, Card, Chip, ChipRow, Empty, Input, Label, Loading, Row, Screen } from '../components/ui';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { fonts, radius, space, useTheme } from '../components/theme';
+import { Button, Chip, ChipRow, Empty, Input, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
 import { createCategory, updateCategory } from '../lib/api';
 import { useUserId } from '../lib/auth';
@@ -57,100 +58,141 @@ export default function CategoriesScreen() {
       setParentId(null);
     });
 
-  const label = (c: Category) => {
-    const parent = c.parent_id ? byId.get(c.parent_id) : undefined;
-    return parent ? `${parent.name} › ${c.name}` : c.name;
+  const parentName = (c: Category) => (c.parent_id ? byId.get(c.parent_id)?.name : undefined);
+  const active = mine.filter((c) => !c.archived_at);
+  const archived = mine.filter((c) => !!c.archived_at);
+
+  const renderRow = (c: Category, i: number) => {
+    const isEditing = editing?.id === c.id;
+    const isArchived = !!c.archived_at;
+    return (
+      <View key={c.id} style={{ borderTopWidth: i === 0 ? 0 : 1, borderTopColor: theme.border }}>
+        {isEditing ? (
+          <View style={{ padding: space.md, gap: space.sm }}>
+            <Row>
+              <Input
+                style={styles.emojiInput}
+                value={editing.emoji}
+                onChangeText={(v) => setEditing({ ...editing, emoji: v })}
+                accessibilityLabel={t.categories.emoji}
+              />
+              <Input
+                style={{ flex: 1 }}
+                value={editing.name}
+                onChangeText={(v) => setEditing({ ...editing, name: v })}
+                accessibilityLabel={t.categories.name}
+                autoFocus
+              />
+            </Row>
+            <Row>
+              <View style={{ flex: 1 }}>
+                <Button title={t.common.cancel} variant="secondary" onPress={() => setEditing(null)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title={t.categories.save}
+                  loading={busy}
+                  disabled={!editing.name.trim()}
+                  onPress={() =>
+                    run(async () => {
+                      await updateCategory(c.id, { name: editing.name.trim(), icon: firstGlyph(editing.emoji) });
+                      setEditing(null);
+                    })
+                  }
+                />
+              </View>
+            </Row>
+          </View>
+        ) : (
+          <Row style={{ paddingHorizontal: space.md, paddingVertical: space.sm + 2, gap: space.md }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint={t.categories.tapToEdit}
+              onPress={() => setEditing({ id: c.id, name: c.name, emoji: c.icon ?? '' })}
+              style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.md, opacity: pressed ? 0.6 : 1 })}
+            >
+              <View style={[styles.emojiTile, { backgroundColor: theme.bg, opacity: isArchived ? 0.5 : 1 }]}>
+                <Text style={{ fontSize: 20 }}>{categoryEmoji(c)}</Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ color: isArchived ? theme.muted : theme.text, fontSize: 15, fontWeight: '600' }} numberOfLines={1}>
+                  {c.name}
+                </Text>
+                {parentName(c) ? (
+                  <Text style={{ color: theme.muted, fontSize: 12 }} numberOfLines={1}>
+                    {t.categories.inside(parentName(c)!)}
+                  </Text>
+                ) : null}
+              </View>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${isArchived ? t.categories.restore : t.categories.archive}: ${c.name}`}
+              hitSlop={8}
+              disabled={busy}
+              onPress={() => run(() => updateCategory(c.id, { archived_at: isArchived ? null : new Date().toISOString() }))}
+              style={({ pressed }) => [styles.iconButton, { backgroundColor: theme.bg, opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Ionicons name={isArchived ? 'arrow-undo-outline' : 'archive-outline'} size={18} color={theme.text} />
+            </Pressable>
+          </Row>
+        )}
+      </View>
+    );
   };
 
   return (
     <Screen edges={[]} onRefresh={refreshAll}>
       <Stack.Screen options={{ title: t.categories.title }} />
-      <Body style={{ color: theme.muted, fontSize: 14 }}>{t.categories.sharedNote}</Body>
+      <Text style={{ color: theme.muted, fontSize: 14 }}>{t.categories.sharedNote}</Text>
 
-      <Card>
-        <Label>{t.categories.new}</Label>
+      {/* Nueva categoría: emoji + nombre y, si querés, dentro de cuál va. */}
+      <View style={[styles.newCard, { backgroundColor: theme.card }]}>
+        <Text style={{ color: theme.text, fontFamily: fonts.displayBold, fontSize: 17 }}>{t.categories.new}</Text>
         <Row>
-          <Input style={{ width: 64, textAlign: 'center' }} value={emoji} onChangeText={setEmoji} placeholder="🏷️" />
+          <Input
+            style={styles.emojiInput}
+            value={emoji}
+            onChangeText={setEmoji}
+            placeholder="🏷️"
+            accessibilityLabel={t.categories.emoji}
+          />
           <Input style={{ flex: 1 }} value={name} onChangeText={setName} placeholder={t.categories.name} />
         </Row>
         <Label>{t.categories.parent}</Label>
         <ChipRow>
           <Chip label={t.categories.none} selected={parentId === null} onPress={() => setParentId(null)} />
           {parents.map((p) => (
-            <Chip
-              key={p.id}
-              label={`${categoryEmoji(p)} ${p.name}`}
-              selected={parentId === p.id}
-              onPress={() => setParentId(p.id)}
-            />
+            <Chip key={p.id} label={`${categoryEmoji(p)} ${p.name}`} selected={parentId === p.id} onPress={() => setParentId(p.id)} />
           ))}
         </ChipRow>
-        <Button title={t.categories.add} onPress={add} loading={busy} disabled={!name.trim()} />
-      </Card>
+        <Button title={t.categories.add} onPress={add} loading={busy && !editing} disabled={!name.trim()} />
+      </View>
 
       {error ? <Text style={{ color: theme.negative }}>{error}</Text> : null}
       {categories.isLoading ? <Loading /> : null}
       {categories.data && mine.length === 0 ? <Empty>{t.categories.empty}</Empty> : null}
 
-      {mine.length > 0 ? (
-        <Card>
-          {mine.map((c, i) => {
-            const isEditing = editing?.id === c.id;
-            const archived = !!c.archived_at;
-            return (
-              <View
-                key={c.id}
-                style={{ gap: space.sm, paddingVertical: space.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: theme.border }}
-              >
-                {isEditing ? (
-                  <>
-                    <Row>
-                      <Input
-                        style={{ width: 64, textAlign: 'center' }}
-                        value={editing.emoji}
-                        onChangeText={(v) => setEditing({ ...editing, emoji: v })}
-                      />
-                      <Input style={{ flex: 1 }} value={editing.name} onChangeText={(v) => setEditing({ ...editing, name: v })} autoFocus />
-                    </Row>
-                    <Row>
-                      <Chip
-                        label={`✓ ${t.categories.save}`}
-                        selected
-                        onPress={() =>
-                          run(async () => {
-                            await updateCategory(c.id, { name: editing.name.trim(), icon: firstGlyph(editing.emoji) });
-                            setEditing(null);
-                          })
-                        }
-                      />
-                      <Chip label={t.common.cancel} onPress={() => setEditing(null)} />
-                    </Row>
-                  </>
-                ) : (
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <Pressable
-                      style={{ flex: 1 }}
-                      accessibilityRole="button"
-                      onPress={() => setEditing({ id: c.id, name: c.name, emoji: c.icon ?? '' })}
-                    >
-                      <Text style={{ color: archived ? theme.muted : theme.text, fontSize: 16 }}>
-                        {categoryEmoji(c)} {label(c)}
-                      </Text>
-                      {archived ? <Text style={{ color: theme.muted, fontSize: 12 }}>{t.categories.archived}</Text> : null}
-                    </Pressable>
-                    <Chip
-                      label={archived ? t.categories.restore : t.categories.archive}
-                      onPress={() =>
-                        run(() => updateCategory(c.id, { archived_at: archived ? null : new Date().toISOString() }))
-                      }
-                    />
-                  </Row>
-                )}
-              </View>
-            );
-          })}
-        </Card>
+      {active.length > 0 ? (
+        <View style={{ gap: space.sm }}>
+          <Label>{t.categories.mine(active.length)}</Label>
+          <View style={[styles.list, { backgroundColor: theme.card }]}>{active.map(renderRow)}</View>
+        </View>
+      ) : null}
+      {archived.length > 0 ? (
+        <View style={{ gap: space.sm }}>
+          <Label>{t.categories.archivedList(archived.length)}</Label>
+          <View style={[styles.list, { backgroundColor: theme.card }]}>{archived.map(renderRow)}</View>
+        </View>
       ) : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  newCard: { borderRadius: radius.lg, padding: space.lg, gap: space.md },
+  list: { borderRadius: radius.lg, overflow: 'hidden' },
+  emojiInput: { width: 56, textAlign: 'center', fontSize: 22, paddingHorizontal: 0 },
+  emojiTile: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+});
