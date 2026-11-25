@@ -11,7 +11,7 @@ import { Button, Card, Chip, Empty, ErrorState, Input, Label, Loading, Row, Scre
 import { categoryEmoji, categoryIndex } from '../lib/categories';
 import { t } from '../i18n';
 import { groupActivity } from '../lib/activity';
-import { addGuestMember, deleteGroup, removeMember, renameMember, setGroupColor, setGroupImage } from '../lib/api';
+import { addGuestMember, deleteGroup, removeMember, renameMember, setGroupImage } from '../lib/api';
 import { GroupColorPicker } from '../components/GroupColorPicker';
 import { groupColorKey, groupColorValue, type GroupColor } from '../lib/group-colors';
 import { useUserId } from '../lib/auth';
@@ -28,6 +28,7 @@ import {
   useGroupExpenses,
   useInvalidateGroups,
   useRefreshAll,
+  useSetGroupColor,
   useSettlements,
 } from '../lib/queries';
 import type { Member, SettlementRow } from '../lib/types';
@@ -49,6 +50,7 @@ export default function GroupDetailScreen() {
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const invalidateGroups = useInvalidateGroups();
+  const setColor = useSetGroupColor();
   const refreshAll = useRefreshAll();
   const [section, setSection] = useState<Section>('expenses');
   const [guestName, setGuestName] = useState('');
@@ -158,14 +160,9 @@ export default function GroupDetailScreen() {
     });
   }
 
-  async function changeColor(color: GroupColor) {
+  function changeColor(color: GroupColor) {
     setImageError(null);
-    try {
-      await setGroupColor(g.id, color);
-      await Promise.all([group.refetch(), invalidateGroups()]);
-    } catch (e) {
-      setImageError(friendlyError(e));
-    }
+    setColor.mutate({ groupId: g.id, color }, { onError: (e) => setImageError(friendlyError(e)) });
   }
 
   async function removeImage() {
@@ -392,13 +389,11 @@ export default function GroupDetailScreen() {
             {imageBusy ? <Loading /> : null}
             {imageError ? <Text style={{ color: theme.negative }}>{imageError}</Text> : null}
           </View>
-          {g.kind !== 'personal' ? (
-            <View style={{ gap: space.sm }}>
-              <Label>{t.groups.color}</Label>
-              <GroupColorPicker value={groupColorKey(g) as GroupColor} onChange={changeColor} />
-              <Text style={{ color: theme.muted, fontSize: 13 }}>{t.groups.colorHint}</Text>
-            </View>
-          ) : null}
+          <View style={{ gap: space.sm }}>
+            <Label>{t.groups.color}</Label>
+            <GroupColorPicker value={groupColorKey(g)} onChange={changeColor} />
+            {g.kind !== 'personal' ? <Text style={{ color: theme.muted, fontSize: 13 }}>{t.groups.colorHint}</Text> : null}
+          </View>
           <Card>
             {members.map((m, i) => {
               const pending = balanceOf.get(m.id);

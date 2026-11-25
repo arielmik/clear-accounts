@@ -34,6 +34,9 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          // Al salir de una pestaña, vuelve a su pantalla principal: tocar "Grupos"
+          // siempre muestra la lista, no el último grupo abierto.
+          popToTopOnBlur: true,
           tabBarActiveTintColor: theme.text,
           tabBarInactiveTintColor: theme.muted,
           tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from './api';
-import type { SaveExpensePayload } from './types';
+import type { Group, SaveExpensePayload } from './types';
 
 export const keys = {
   groups: ['groups'] as const,
@@ -90,4 +90,28 @@ export function useInvalidateGroups() {
 export function useRefreshAll() {
   const qc = useQueryClient();
   return () => qc.invalidateQueries();
+}
+
+/**
+ * Cambia el color de un grupo al instante en pantalla (actualización optimista) y lo
+ * guarda en segundo plano; si falla, vuelve al color anterior.
+ */
+export function useSetGroupColor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, color }: { groupId: string; color: string }) => api.setGroupColor(groupId, color),
+    onMutate: async ({ groupId, color }) => {
+      await qc.cancelQueries({ queryKey: keys.groups });
+      const prevList = qc.getQueryData<Group[]>(keys.groups);
+      const prevOne = qc.getQueryData<Group>(keys.group(groupId));
+      qc.setQueryData<Group[]>(keys.groups, (list) => list?.map((g) => (g.id === groupId ? { ...g, color } : g)));
+      qc.setQueryData<Group>(keys.group(groupId), (g) => (g ? { ...g, color } : g));
+      return { prevList, prevOne };
+    },
+    onError: (_e, { groupId }, ctx) => {
+      if (ctx?.prevList) qc.setQueryData(keys.groups, ctx.prevList);
+      if (ctx?.prevOne) qc.setQueryData(keys.group(groupId), ctx.prevOne);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.groups }),
+  });
 }

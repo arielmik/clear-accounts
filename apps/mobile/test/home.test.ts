@@ -60,12 +60,15 @@ describe('colores de grupo', () => {
     expect(groupColorKey({ id: 'x', kind: 'trip', color: 'lilac' })).toBe('lilac');
     expect(groupColorKey({ id: 'x', kind: 'trip', color: null })).toBe(fallbackGroupColor('x'));
     expect(groupColorKey({ id: 'x', kind: 'trip', color: 'violeta' })).toBe(fallbackGroupColor('x'));
-    expect(groupColorKey({ id: 'x', kind: 'personal', color: 'sun' })).toBe('personal');
+    expect(groupColorKey({ id: 'x', kind: 'personal', color: null })).toBe('mint');
+    expect(groupColorKey({ id: 'x', kind: 'personal', color: 'sun' })).toBe('sun');
+    expect(fallbackGroupColor('cualquiera')).not.toBe('mint');
   });
 
   it('propone el primer color que el usuario no usa', () => {
     expect(freeGroupColor([])).toBe('coral');
     expect(freeGroupColor(['coral', null, 'sky'])).toBe('sun');
     expect(GROUP_COLORS).toContain(freeGroupColor([...GROUP_COLORS]));
+    expect(freeGroupColor(['coral', 'sky', 'sun', 'lilac', 'pink', 'teal', 'lime', 'sand'])).not.toBe('mint');
   });
 });

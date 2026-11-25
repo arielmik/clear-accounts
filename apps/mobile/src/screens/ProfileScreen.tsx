@@ -10,7 +10,9 @@ import { setMyAvatar, updateMyEmail, updateMyName } from '../lib/api';
 import { removeStoredImage, replaceImage } from '../lib/images';
 import { useAuth, useUserId } from '../lib/auth';
 import { friendlyError } from '../lib/errors';
-import { useAvatars, useInvalidateGroups, useProfile, useRefreshAll } from '../lib/queries';
+import { groupColorKey } from '../lib/group-colors';
+import { useAvatars, useGroups, useInvalidateGroups, useProfile, useRefreshAll, useSetGroupColor } from '../lib/queries';
+import { GroupColorPicker } from '../components/GroupColorPicker';
 import { disablePush, enablePush, signOut, usePushEnabled } from '../lib/push';
 import { supabase } from '../lib/supabase';
 import { buildInfo } from '../lib/updates';
@@ -23,6 +25,9 @@ export default function ProfileScreen() {
   const { session } = useAuth();
   const profile = useProfile(userId);
   const avatars = useAvatars();
+  const groups = useGroups();
+  const personal = groups.data?.find((g) => g.kind === 'personal');
+  const setColor = useSetGroupColor();
   const invalidateGroups = useInvalidateGroups();
   const refreshAll = useRefreshAll();
 
@@ -143,6 +148,19 @@ export default function ProfileScreen() {
         {photoBusy ? <Loading /> : null}
         {photoError ? <Text style={{ color: theme.negative }}>{photoError}</Text> : null}
       </View>
+
+      {personal ? (
+        <View style={{ gap: space.sm }}>
+          <Label>{t.profile.personalColor}</Label>
+          <GroupColorPicker
+            value={groupColorKey(personal)}
+            onChange={(color) =>
+              setColor.mutate({ groupId: personal.id, color }, { onError: (e) => setPhotoError(friendlyError(e)) })
+            }
+          />
+          <Text style={{ color: theme.muted, fontSize: 13 }}>{t.profile.personalColorHint}</Text>
+        </View>
+      ) : null}
       <Card>
         <Label>{t.profile.name}</Label>
         <Input value={name} onChangeText={setName} autoComplete="name" />
