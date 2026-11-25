@@ -9,3 +9,6 @@ coverage/
 
 # Netlify CLI
 .netlify/
+
+# APK de la página de invitación (se publica en Netlify, no va al repo)
+*.apk

@@ -3,3 +3,7 @@
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   Cache-Control: public, max-age=300
+/clear-accounts.apk
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment; filename="clear-accounts.apk"
+  Cache-Control: no-cache
