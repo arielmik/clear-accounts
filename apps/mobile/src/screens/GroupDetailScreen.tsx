@@ -1,16 +1,19 @@
 import { simplifyDebts } from '@clear-accounts/core';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Money } from '../components/Money';
-import { space, useTheme } from '../components/theme';
-import { Button, Card, Chip, ChipRow, Empty, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
+import { fonts, radius, space, useTheme } from '../components/theme';
+import { Button, Card, Chip, Empty, ErrorState, Input, Label, Loading, Row, Screen, Segmented } from '../components/ui';
+import { categoryEmoji, categoryIndex } from '../lib/categories';
 import { t } from '../i18n';
 import { groupActivity } from '../lib/activity';
 import { addGuestMember, deleteGroup, removeMember, renameMember, setGroupColor, setGroupImage } from '../lib/api';
 import { GroupColorPicker } from '../components/GroupColorPicker';
-import { groupColorKey, type GroupColor } from '../lib/group-colors';
+import { groupColorKey, groupColorValue, type GroupColor } from '../lib/group-colors';
 import { useUserId } from '../lib/auth';
 import { confirm } from '../lib/confirm';
 import { shortDate } from '../lib/dates';
@@ -19,6 +22,7 @@ import { removeStoredImage, replaceImage } from '../lib/images';
 import { formatMoney } from '../lib/money';
 import {
   useBalances,
+  useCategories,
   useDeleteSettlement,
   useGroup,
   useGroupExpenses,
@@ -33,8 +37,11 @@ type Section = 'expenses' | 'balances' | 'members';
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const userId = useUserId();
   const group = useGroup(id);
+  const categories = useCategories();
+  const catIndex = useMemo(() => categoryIndex(categories.data ?? []), [categories.data]);
   const expenses = useGroupExpenses(id);
   const balances = useBalances(id);
   const settlements = useSettlements(id);
@@ -175,32 +182,99 @@ export default function GroupDetailScreen() {
     }
   }
 
-  return (
-    <Screen edges={[]} onRefresh={refreshAll}>
-      <Stack.Screen options={{ title: g.name }} />
-      <View style={{ alignItems: 'center', gap: space.sm }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t.groups.changeImage} onPress={changeImage} disabled={imageBusy}>
-          <Avatar path={g.image_path} size={96} name={g.name} />
+  const groupBg = groupColorValue(groupColorKey(g), theme);
+  const balanceLabel = (memberId: string) => {
+    const list = balanceOf.get(memberId) ?? [];
+    const b = list.find((x) => x.currency === g.currency) ?? list[0];
+    return b ? { minor: b.minor, text: `${b.minor > 0 ? '+' : '−'}${formatMoney(Math.abs(b.minor), b.currency)}` } : null;
+  };
+
+  const header = (
+    <View style={[styles.header, { backgroundColor: groupBg, paddingTop: insets.top + space.sm }]}>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t.common.back} onPress={() => router.back()} style={styles.circle}>
+          <Ionicons name="chevron-back" size={22} color={theme.onGroup} />
         </Pressable>
-        <Row>
-          <Chip label={g.image_path ? t.groups.changeImage : t.groups.addImage} onPress={changeImage} />
-          {g.image_path ? <Chip label={t.groups.removeImage} onPress={removeImage} /> : null}
-        </Row>
-        {imageBusy ? <Loading /> : null}
-        {imageError ? <Text style={{ color: theme.negative }}>{imageError}</Text> : null}
-      </View>
-      <ChipRow>
-        <Chip label={t.groups.expenses} selected={section === 'expenses'} onPress={() => setSection('expenses')} />
-        <Chip label={t.groups.balances} selected={section === 'balances'} onPress={() => setSection('balances')} />
-        <Chip label={t.groups.members} selected={section === 'members'} onPress={() => setSection('members')} />
-      </ChipRow>
+        {g.kind !== 'personal' ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={t.groups.invite} onPress={invite} style={styles.circle}>
+            <Ionicons name="person-add-outline" size={20} color={theme.onGroup} />
+          </Pressable>
+        ) : null}
+      </Row>
+      <Row style={{ gap: space.md }}>
+        {g.image_path ? <Avatar path={g.image_path} size={44} name={g.name} /> : null}
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: theme.onGroup, fontFamily: fonts.display, fontSize: 28, letterSpacing: -0.5 }} numberOfLines={2}>
+            {g.name}
+          </Text>
+          <Text style={{ color: theme.onGroup, opacity: 0.7, fontSize: 13, fontWeight: '600' }}>
+            {t.groups.kinds[g.kind as keyof typeof t.groups.kinds] ?? t.common.personal} · {t.groups.membersCount(members.length)}
+          </Text>
+        </View>
+      </Row>
+      {g.kind !== 'personal' ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: space.md }}>
+          {members.map((m) => {
+            const b = balanceLabel(m.id);
+            return (
+              <Pressable
+                key={m.id}
+                accessibilityRole="button"
+                accessibilityLabel={nameOf(m.id)}
+                onPress={() => setSection('balances')}
+                style={{ alignItems: 'center', gap: 4, width: 64 }}
+              >
+                <View style={{ borderRadius: 30, borderWidth: 3, borderColor: m.user_id === userId ? theme.onGroup : '#FFFFFF' }}>
+                  <Avatar path={null} size={44} name={m.display_name} />
+                </View>
+                <Text style={{ color: theme.onGroup, fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
+                  {nameOf(m.id)}
+                </Text>
+                <View style={styles.balancePill}>
+                  <Text
+                    style={{ fontSize: 11, fontWeight: '800', fontVariant: ['tabular-nums'], color: !b ? '#6F6A7D' : b.minor > 0 ? '#139463' : '#C9361C' }}
+                    numberOfLines={1}
+                  >
+                    {b ? b.text : '0'}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+      {g.kind !== 'personal' ? (
+        transfers.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setSection('balances')}
+            style={({ pressed }) => [styles.settleButton, { opacity: pressed ? 0.85 : 1 }]}
+          >
+            <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>{t.groups.settleIn(transfers.length)}</Text>
+          </Pressable>
+        ) : (
+          <Text style={{ color: theme.onGroup, fontWeight: '700' }}>{t.groups.allSettled}</Text>
+        )
+      ) : null}
+    </View>
+  );
+
+  return (
+    <Screen edges={[]} onRefresh={refreshAll} header={header} background={groupBg}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <Segmented
+        options={[
+          { key: 'expenses', label: t.groups.expenses },
+          { key: 'balances', label: t.groups.balances },
+          { key: 'members', label: t.groups.members },
+        ]}
+        value={section}
+        onChange={setSection}
+      />
 
       {section === 'expenses' ? (
         <>
-          <Button
-            title={t.expense.new}
-            onPress={() => router.push({ pathname: '/expense-form', params: { groupId: g.id } })}
-          />
           {expenses.isLoading ? <Loading /> : null}
           {expenses.error ? <ErrorState error={expenses.error} onRetry={() => expenses.refetch()} /> : null}
           {expenses.data?.length === 0 && settlements.data?.length === 0 ? <Empty>{t.groups.noExpenses}</Empty> : null}
@@ -214,10 +288,10 @@ export default function GroupDetailScreen() {
                   onPress={() => removePayment(p)}
                   style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
                 >
-                  <Card style={{ backgroundColor: theme.chip }}>
+                  <Card style={{ backgroundColor: theme.positiveSoft, paddingVertical: space.md }}>
                     <Row style={{ justifyContent: 'space-between' }}>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontSize: 15 }}>
+                        <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>
                           💸 {t.groups.paymentRow(nameOf(p.from_member_id), nameOf(p.to_member_id), p.from_member_id === me?.id, p.to_member_id === me?.id)}
                         </Text>
                         <Text style={{ color: theme.muted, fontSize: 13 }}>{shortDate(p.paid_at)}</Text>
@@ -231,29 +305,42 @@ export default function GroupDetailScreen() {
             const e = item.e;
             const payer = e.expense_payers[0];
             const myShare = e.expense_shares.find((sh) => sh.member_id === me?.id)?.amount_minor ?? 0;
+            const iPaid = !!me && payer?.member_id === me.id;
+            const lent = iPaid ? e.amount_minor - myShare : 0;
             return (
               <Pressable
                 key={e.id}
                 accessibilityRole="button"
                 onPress={() => router.push(`/groups/expense/${e.id}`)}
-                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                style={({ pressed }) => [styles.row, { backgroundColor: theme.card, opacity: pressed ? 0.7 : 1 }]}
               >
-                <Card>
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600' }}>{e.description}</Text>
-                      <Text style={{ color: theme.muted, fontSize: 13 }}>
-                        {shortDate(e.spent_at)} · {t.expense.paidBy} {payer ? nameOf(payer.member_id) : '?'}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Money minor={e.amount_minor} currency={e.currency} />
-                      <Text style={{ color: theme.muted, fontSize: 12 }}>
-                        {t.common.me}: {formatMoney(myShare, e.currency)}
-                      </Text>
-                    </View>
-                  </Row>
-                </Card>
+                <Text style={{ fontSize: 24 }}>{categoryEmoji(catIndex.rootOf(e.category_id))}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>
+                    {e.description}
+                  </Text>
+                  <Text style={{ color: theme.muted, fontSize: 12 }} numberOfLines={1}>
+                    {iPaid ? t.groups.youPaid : t.groups.paidByName(payer ? nameOf(payer.member_id) : '?')} · {shortDate(e.spent_at)}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: theme.text, fontWeight: '800', fontSize: 15, fontVariant: ['tabular-nums'] }}>
+                    {formatMoney(e.amount_minor, e.currency)}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '600',
+                      color: lent > 0 ? theme.positive : !iPaid && myShare > 0 ? theme.negative : theme.muted,
+                    }}
+                  >
+                    {lent > 0
+                      ? t.groups.lent(formatMoney(lent, e.currency))
+                      : !iPaid && myShare > 0
+                        ? t.groups.borrowed(formatMoney(myShare, e.currency))
+                        : t.groups.notInvolved}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
@@ -283,7 +370,7 @@ export default function GroupDetailScreen() {
                 )}
               </Text>
               <Money minor={tr.amountMinor} currency={tr.currency} style={{ fontSize: 22 }} />
-              <Button title={t.groups.markPaid} variant="secondary" onPress={() => openSettle(tr)} />
+              <Button title={t.groups.markPaid} onPress={() => openSettle(tr)} />
             </Card>
           ))}
           <Button title={t.groups.registerPayment} variant="secondary" onPress={() => openSettle()} />
@@ -292,6 +379,18 @@ export default function GroupDetailScreen() {
 
       {section === 'members' ? (
         <>
+          <View style={{ gap: space.sm }}>
+            <Label>{t.groups.image}</Label>
+            <Row style={{ gap: space.md }}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t.groups.changeImage} onPress={changeImage} disabled={imageBusy}>
+                <Avatar path={g.image_path} size={56} name={g.name} />
+              </Pressable>
+              <Chip label={g.image_path ? t.groups.changeImage : t.groups.addImage} onPress={changeImage} />
+              {g.image_path ? <Chip label={t.groups.removeImage} onPress={removeImage} /> : null}
+            </Row>
+            {imageBusy ? <Loading /> : null}
+            {imageError ? <Text style={{ color: theme.negative }}>{imageError}</Text> : null}
+          </View>
           {g.kind !== 'personal' ? (
             <View style={{ gap: space.sm }}>
               <Label>{t.groups.color}</Label>
@@ -393,3 +492,33 @@ export default function GroupDetailScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: space.lg,
+    paddingBottom: space.lg + 2,
+    gap: space.md,
+    borderBottomLeftRadius: radius.xl + 4,
+    borderBottomRightRadius: radius.xl + 4,
+    marginBottom: space.xs,
+  },
+  circle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  balancePill: { backgroundColor: '#FFFFFF', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, maxWidth: 76 },
+  settleButton: {
+    backgroundColor: '#16131F',
+    borderRadius: radius.lg,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.md, borderRadius: radius.lg, padding: space.md },
+});

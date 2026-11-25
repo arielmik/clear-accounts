@@ -23,10 +23,16 @@ export function Screen({
   scroll = true,
   edges = ['top'],
   onRefresh,
+  header,
+  background,
 }: {
   children: ReactNode;
   scroll?: boolean;
   edges?: Edge[];
+  /** Bloque a todo el ancho arriba del contenido (por ejemplo, el encabezado de color de un grupo). */
+  header?: ReactNode;
+  /** Fondo detrás de la zona segura superior (para que el encabezado de color llegue hasta arriba). */
+  background?: string;
   /** Si se indica, deslizar hacia abajo recarga los datos. */
   onRefresh?: () => Promise<unknown>;
 }) {
@@ -43,10 +49,11 @@ export function Screen({
       }
     : undefined;
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={edges}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: background ?? theme.bg }} edges={edges}>
       {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.screen}
+          style={{ backgroundColor: theme.bg }}
+          contentContainerStyle={header ? { paddingBottom: 120 } : styles.screen}
           keyboardShouldPersistTaps="handled"
           refreshControl={
             refresh ? (
@@ -54,7 +61,14 @@ export function Screen({
             ) : undefined
           }
         >
-          {children}
+          {header ? (
+            <>
+              {header}
+              <View style={[styles.screen, { paddingBottom: 0 }]}>{children}</View>
+            </>
+          ) : (
+            children
+          )}
         </ScrollView>
       ) : (
         <View style={[styles.screen, { flex: 1 }]}>{children}</View>
