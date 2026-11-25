@@ -197,6 +197,18 @@ export async function deleteSettlement(id: string): Promise<void> {
   unwrap(await supabase.from('settlements').update({ deleted_at: new Date().toISOString() }).eq('id', id));
 }
 
+/**
+ * Fotos de perfil visibles para el usuario: la suya y las de quienes comparten
+ * algún grupo con él (RLS de profiles). Devuelve id de usuario -> ruta de la imagen.
+ */
+export async function fetchAvatars(): Promise<Record<string, string>> {
+  const rows = unwrap(await supabase.from('profiles').select('id, avatar_path').not('avatar_path', 'is', null)) as {
+    id: string;
+    avatar_path: string;
+  }[];
+  return Object.fromEntries(rows.map((r) => [r.id, r.avatar_path]));
+}
+
 export async function setGroupColor(groupId: string, color: string): Promise<void> {
   unwrap(await supabase.rpc('set_group_color', { p_group_id: groupId, p_color: color }));
 }

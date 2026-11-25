@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar } from '../components/Avatar';
+import { Avatar, MemberAvatar } from '../components/Avatar';
 import { Money } from '../components/Money';
 import { fonts, radius, space, useTheme } from '../components/theme';
 import { Button, Card, Chip, Empty, ErrorState, Input, Label, Loading, Row, Screen, Segmented } from '../components/ui';
@@ -225,7 +225,7 @@ export default function GroupDetailScreen() {
                 style={{ alignItems: 'center', gap: 4, width: 64 }}
               >
                 <View style={{ borderRadius: 30, borderWidth: 3, borderColor: m.user_id === userId ? theme.onGroup : '#FFFFFF' }}>
-                  <Avatar path={null} size={44} name={m.display_name} />
+                  <MemberAvatar member={m} size={44} />
                 </View>
                 <Text style={{ color: theme.onGroup, fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
                   {nameOf(m.id)}
@@ -351,8 +351,9 @@ export default function GroupDetailScreen() {
         <>
           <Card>
             {(balances.data ?? []).map((b) => (
-              <Row key={`${b.member_id}-${b.currency}`} style={{ justifyContent: 'space-between' }}>
-                <Text style={{ color: theme.text, fontSize: 16 }}>{nameOf(b.member_id)}</Text>
+              <Row key={`${b.member_id}-${b.currency}`} style={{ gap: space.md }}>
+                <MemberAvatar member={allMembers.find((x) => x.id === b.member_id)} size={32} />
+                <Text style={{ color: theme.text, fontSize: 16, flex: 1 }}>{nameOf(b.member_id)}</Text>
                 <Money minor={b.balance_minor} currency={b.currency} signed />
               </Row>
             ))}
@@ -434,7 +435,8 @@ export default function GroupDetailScreen() {
                       />
                     </Row>
                   ) : (
-                    <Row style={{ justifyContent: 'space-between' }}>
+                    <Row style={{ justifyContent: 'space-between', gap: space.md }}>
+                      <MemberAvatar member={m} size={40} />
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 16 }}>{nameOf(m.id)}</Text>
                         <Text style={{ color: theme.muted, fontSize: 13 }}>

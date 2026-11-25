@@ -11,6 +11,7 @@ export const keys = {
   ledger: (from: string, to: string) => ['ledger', from, to] as const,
   expense: (id: string) => ['expense', id] as const,
   profile: (userId: string) => ['profile', userId] as const,
+  avatars: ['avatars'] as const,
   settlements: (groupId: string) => ['settlements', groupId] as const,
   override: (expenseId: string) => ['override', expenseId] as const,
 };
@@ -43,6 +44,7 @@ export function useInvalidateCategories() {
 
 export const useSettlements = (groupId: string) =>
   useQuery({ queryKey: keys.settlements(groupId), queryFn: () => api.fetchSettlements(groupId) });
+export const useAvatars = () => useQuery({ queryKey: keys.avatars, queryFn: api.fetchAvatars, staleTime: 5 * 60 * 1000 });
 export const useProfile = (userId: string) =>
   useQuery({ queryKey: keys.profile(userId), queryFn: () => api.fetchProfile(userId) });
 

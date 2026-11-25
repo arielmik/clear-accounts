@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar } from '../components/Avatar';
+import { MemberAvatar } from '../components/Avatar';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { DateField } from '../components/DateField';
 import { fonts, radius, space, useTheme } from '../components/theme';
@@ -22,9 +22,9 @@ import {
   type ExpenseFormState,
 } from '../lib/expense-form';
 import { groupColorKey, groupColorValue } from '../lib/group-colors';
-import { formatMoney, parseAmount } from '../lib/money';
+import { formatAmountTyping, formatMoney, parseAmount } from '../lib/money';
 import { useCategories, useExpense, useGroups, useSaveExpense } from '../lib/queries';
-import type { ExpenseRow, Group, SplitType } from '../lib/types';
+import type { ExpenseRow, Group, Member, SplitType } from '../lib/types';
 
 const SPLIT_TYPES: SplitType[] = ['equal', 'exact', 'percent', 'shares'];
 
@@ -229,17 +229,22 @@ function ExpenseForm({
 
           {/* 1. Monto: lo primero y lo más grande. */}
           <View style={{ alignItems: 'center', paddingHorizontal: space.lg, paddingTop: space.lg }}>
-            <Row style={{ gap: 6 }}>
-              <Text style={{ color: theme.onGroup, opacity: 0.55, fontFamily: fonts.display, fontSize: 30 }}>$</Text>
+            <Row style={{ gap: 6, maxWidth: '100%' }}>
+              <Text style={{ color: theme.onGroup, opacity: 0.55, fontFamily: fonts.display, fontSize: Math.round(amountFontSize(form.amountText) * 0.58) }}>
+                $
+              </Text>
               <TextInput
                 accessibilityLabel={t.expense.amount}
                 value={form.amountText}
-                onChangeText={(v) => set('amountText', v)}
+                onChangeText={(v) => set('amountText', formatAmountTyping(form.amountText, v, group.currency))}
                 placeholder="0"
                 placeholderTextColor="rgba(22,19,31,0.35)"
                 keyboardType="decimal-pad"
                 autoFocus={!expense}
-                style={[{ color: theme.onGroup, fontFamily: fonts.display, fontSize: 52, minWidth: 80, textAlign: 'center', padding: 0 }, noOutline]}
+                style={[
+                  { color: theme.onGroup, fontFamily: fonts.display, fontSize: amountFontSize(form.amountText), minWidth: 80, flexShrink: 1, textAlign: 'center', padding: 0 },
+                  noOutline,
+                ]}
               />
             </Row>
             <Text style={{ color: theme.onGroup, opacity: 0.6, fontSize: 12, fontWeight: '700' }}>{group.currency}</Text>
@@ -269,6 +274,7 @@ function ExpenseForm({
                   {members.map((m) => (
                     <PersonToggle
                       key={m.id}
+                      member={m}
                       name={nameOf(m.id)}
                       selected={form.payerMemberId === m.id}
                       onPress={() => set('payerMemberId', m.id)}
@@ -291,6 +297,7 @@ function ExpenseForm({
                       return (
                         <PersonToggle
                           key={m.id}
+                          member={m}
                           name={nameOf(m.id)}
                           selected={on}
                           dimmed={!on}
@@ -306,7 +313,7 @@ function ExpenseForm({
                       const share = preview.perMember[m.id];
                       return (
                         <Row key={m.id} style={{ gap: space.md }}>
-                          <Avatar path={null} size={36} name={nameOf(m.id)} />
+                          <MemberAvatar member={m} size={36} />
                           <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600', flex: 1 }} numberOfLines={1}>
                             {nameOf(m.id)}
                           </Text>
@@ -316,7 +323,12 @@ function ExpenseForm({
                             accessibilityLabel={nameOf(m.id)}
                             placeholder={form.splitType === 'percent' ? '0 %' : form.splitType === 'shares' ? '1' : '0'}
                             value={form.values[m.id] ?? ''}
-                            onChangeText={(v) => set('values', { ...form.values, [m.id]: v })}
+                            onChangeText={(v) =>
+                              set('values', {
+                                ...form.values,
+                                [m.id]: form.splitType === 'exact' ? formatAmountTyping(form.values[m.id] ?? '', v, group.currency) : v,
+                              })
+                            }
                           />
                           {form.splitType !== 'exact' ? (
                             <Text style={{ color: theme.muted, fontSize: 13, width: 84, textAlign: 'right', fontVariant: ['tabular-nums'] }} numberOfLines={1}>
@@ -378,12 +390,14 @@ function ExpenseForm({
 
 /** Persona elegible tocando su cara (quién pagó, entre quiénes se divide). */
 function PersonToggle({
+  member,
   name,
   selected,
   dimmed,
   caption,
   onPress,
 }: {
+  member: Member;
   name: string;
   selected: boolean;
   dimmed?: boolean;
@@ -400,7 +414,7 @@ function PersonToggle({
       style={{ alignItems: 'center', gap: 4, width: 58, opacity: dimmed ? 0.4 : 1 }}
     >
       <View style={{ borderRadius: 30, borderWidth: 3, borderColor: selected ? theme.text : 'transparent', padding: 1 }}>
-        <Avatar path={null} size={42} name={name} />
+        <MemberAvatar member={member} size={42} />
       </View>
       <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
         {name}
@@ -412,6 +426,13 @@ function PersonToggle({
       ) : null}
     </Pressable>
   );
+}
+
+/** El monto se achica a medida que crece, para que entre siempre en el ancho de la pantalla. */
+function amountFontSize(text: string): number {
+  if (text.length <= 7) return 52;
+  if (text.length <= 10) return 40;
+  return 30;
 }
 
 /** En web, sin el recuadro de foco del navegador (los campos ya son el centro de la pantalla). */

@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
-import { space, useTheme } from '../components/theme';
+import { fonts, space, useTheme } from '../components/theme';
 import { Button, Card, Chip, ChipRow, ErrorState, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
 import { useUserId } from '../lib/auth';
 import { friendlyError } from '../lib/errors';
-import { formatMoney, minorToInput, parseAmount } from '../lib/money';
+import { formatAmountTyping, formatMoney, minorToInput, parseAmount } from '../lib/money';
 import { useBalances, useCreateSettlement, useGroup } from '../lib/queries';
 import { balanceAfterPayment } from '../lib/settle';
 
@@ -99,11 +99,11 @@ export default function SettleFormScreen() {
         <TextInput
           accessibilityLabel={t.settle.amount}
           value={amountText}
-          onChangeText={setAmountText}
+          onChangeText={(v) => setAmountText((prev) => formatAmountTyping(prev, v, currency))}
           keyboardType="decimal-pad"
           placeholder="0"
           placeholderTextColor={theme.muted}
-          style={{ color: theme.text, fontSize: 44, fontWeight: '700', alignSelf: 'stretch', textAlign: 'center' }}
+          style={{ color: theme.text, fontSize: 44, fontFamily: fonts.display, alignSelf: 'stretch', textAlign: 'center' }}
         />
         {suggested ? (
           <Text style={{ color: theme.muted }}>{t.settle.suggested(formatMoney(suggested, currency))}</Text>

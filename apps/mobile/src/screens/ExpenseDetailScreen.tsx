@@ -1,6 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
+import { MemberAvatar } from '../components/Avatar';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { Money } from '../components/Money';
 import { space, useTheme } from '../components/theme';
@@ -131,9 +132,11 @@ export default function ExpenseDetailScreen() {
           <Label>{t.expense.splitAmong}</Label>
           <Card>
             {e.expense_shares.map((s) => (
-              <Row key={s.member_id} style={{ justifyContent: 'space-between' }}>
+              <Row key={s.member_id} style={{ gap: space.md }}>
+                <MemberAvatar member={members.find((x) => x.id === s.member_id)} size={32} />
                 <Text
                   style={{
+                    flex: 1,
                     color: theme.text,
                     fontSize: 16,
                     fontWeight: s.member_id === myMemberId ? '700' : '400',

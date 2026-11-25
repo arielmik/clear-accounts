@@ -10,7 +10,7 @@ import { setMyAvatar, updateMyEmail, updateMyName } from '../lib/api';
 import { removeStoredImage, replaceImage } from '../lib/images';
 import { useAuth, useUserId } from '../lib/auth';
 import { friendlyError } from '../lib/errors';
-import { useInvalidateGroups, useProfile, useRefreshAll } from '../lib/queries';
+import { useAvatars, useInvalidateGroups, useProfile, useRefreshAll } from '../lib/queries';
 import { disablePush, enablePush, signOut, usePushEnabled } from '../lib/push';
 import { supabase } from '../lib/supabase';
 import { buildInfo } from '../lib/updates';
@@ -22,6 +22,7 @@ export default function ProfileScreen() {
   const userId = useUserId();
   const { session } = useAuth();
   const profile = useProfile(userId);
+  const avatars = useAvatars();
   const invalidateGroups = useInvalidateGroups();
   const refreshAll = useRefreshAll();
 
@@ -45,7 +46,7 @@ export default function ProfileScreen() {
     setPhotoError(null);
     try {
       const changed = await replaceImage({ kind: 'users', ownerId: userId, currentPath: avatarPath, assign: setMyAvatar });
-      if (changed) await profile.refetch();
+      if (changed) await Promise.all([profile.refetch(), avatars.refetch()]);
     } catch (e) {
       setPhotoError(friendlyError(e));
     } finally {
@@ -60,7 +61,7 @@ export default function ProfileScreen() {
     try {
       await setMyAvatar(null);
       await removeStoredImage(avatarPath);
-      await profile.refetch();
+      await Promise.all([profile.refetch(), avatars.refetch()]);
     } catch (e) {
       setPhotoError(friendlyError(e));
     } finally {
