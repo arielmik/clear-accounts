@@ -18,7 +18,7 @@ function unwrap<T>(result: { data: T | null; error: { message: string } | null }
 }
 
 const GROUP_FIELDS =
-  'id, name, kind, currency, simplify_debts, image_path, group_members(id, user_id, display_name, role, left_at)';
+  'id, name, kind, currency, simplify_debts, image_path, color, group_members(id, user_id, display_name, role, left_at)';
 
 export async function fetchGroups(): Promise<Group[]> {
   return unwrap(
@@ -195,6 +195,10 @@ export async function fetchSettlements(groupId: string): Promise<SettlementRow[]
 
 export async function deleteSettlement(id: string): Promise<void> {
   unwrap(await supabase.from('settlements').update({ deleted_at: new Date().toISOString() }).eq('id', id));
+}
+
+export async function setGroupColor(groupId: string, color: string): Promise<void> {
+  unwrap(await supabase.rpc('set_group_color', { p_group_id: groupId, p_color: color }));
 }
 
 export async function setGroupImage(groupId: string, path: string | null): Promise<void> {

@@ -332,6 +332,18 @@ describe('imágenes', () => {
     ).rejects.toThrow(/NOT_A_MEMBER/);
   });
 
+  it('color del grupo: lo cambia un miembro, solo con valores de la paleta', async () => {
+    await as(ANA, (tx) => tx.query('select set_group_color($1, $2)', [tripId, 'lilac']));
+    const r = await db.query<{ color: string }>('select color from groups where id = $1', [tripId]);
+    expect(r.rows[0]!.color).toBe('lilac');
+    await expect(
+      as(ANA, (tx) => tx.query('select set_group_color($1, $2)', [tripId, '#ff0000'])),
+    ).rejects.toThrow(/check constraint/);
+    await expect(
+      as(EVA, (tx) => tx.query('select set_group_color($1, $2)', [tripId, 'sun'])),
+    ).rejects.toThrow(/NOT_A_MEMBER/);
+  });
+
   it('la ruta de la imagen tiene que ser del mismo grupo', async () => {
     const other = await personalGroup(ANA);
     await expect(

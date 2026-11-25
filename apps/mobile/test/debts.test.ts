@@ -11,9 +11,9 @@ const m = (id: string, user_id: string | null, display_name: string) => ({
 });
 
 const groups: Group[] = [
-  { id: 'p', name: 'Personal', kind: 'personal', currency: 'ARS', simplify_debts: false, image_path: null, group_members: [m('mp', 'me', 'Yo')] },
-  { id: 'trip', name: 'Viaje', kind: 'trip', currency: 'ARS', simplify_debts: true, image_path: null, group_members: [m('v', 'me', 'Yo'), m('a', 'u-a', 'Ana'), m('b', null, 'Beto')] },
-  { id: 'home', name: 'Casa', kind: 'home', currency: 'ARS', simplify_debts: true, image_path: null, group_members: [m('v2', 'me', 'Yo'), m('l', 'u-l', 'Lu')] },
+  { id: 'p', name: 'Personal', kind: 'personal', currency: 'ARS', simplify_debts: false, image_path: null, color: null, group_members: [m('mp', 'me', 'Yo')] },
+  { id: 'trip', name: 'Viaje', kind: 'trip', currency: 'ARS', simplify_debts: true, image_path: null, color: null, group_members: [m('v', 'me', 'Yo'), m('a', 'u-a', 'Ana'), m('b', null, 'Beto')] },
+  { id: 'home', name: 'Casa', kind: 'home', currency: 'ARS', simplify_debts: true, image_path: null, color: null, group_members: [m('v2', 'me', 'Yo'), m('l', 'u-l', 'Lu')] },
 ];
 
 const balances: BalanceRow[] = [

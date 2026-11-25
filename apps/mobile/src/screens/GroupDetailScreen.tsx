@@ -8,7 +8,9 @@ import { space, useTheme } from '../components/theme';
 import { Button, Card, Chip, ChipRow, Empty, ErrorState, Input, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
 import { groupActivity } from '../lib/activity';
-import { addGuestMember, deleteGroup, removeMember, renameMember, setGroupImage } from '../lib/api';
+import { addGuestMember, deleteGroup, removeMember, renameMember, setGroupColor, setGroupImage } from '../lib/api';
+import { GroupColorPicker } from '../components/GroupColorPicker';
+import { groupColorKey, type GroupColor } from '../lib/group-colors';
 import { useUserId } from '../lib/auth';
 import { confirm } from '../lib/confirm';
 import { shortDate } from '../lib/dates';
@@ -149,6 +151,16 @@ export default function GroupDetailScreen() {
     });
   }
 
+  async function changeColor(color: GroupColor) {
+    setImageError(null);
+    try {
+      await setGroupColor(g.id, color);
+      await Promise.all([group.refetch(), invalidateGroups()]);
+    } catch (e) {
+      setImageError(friendlyError(e));
+    }
+  }
+
   async function removeImage() {
     if (!g.image_path) return;
     setImageBusy(true);
@@ -280,6 +292,13 @@ export default function GroupDetailScreen() {
 
       {section === 'members' ? (
         <>
+          {g.kind !== 'personal' ? (
+            <View style={{ gap: space.sm }}>
+              <Label>{t.groups.color}</Label>
+              <GroupColorPicker value={groupColorKey(g) as GroupColor} onChange={changeColor} />
+              <Text style={{ color: theme.muted, fontSize: 13 }}>{t.groups.colorHint}</Text>
+            </View>
+          ) : null}
           <Card>
             {members.map((m, i) => {
               const pending = balanceOf.get(m.id);

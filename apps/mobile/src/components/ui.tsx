@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { t } from '../i18n';
-import { radius, space, useTheme } from './theme';
+import { fonts, radius, space, useTheme } from './theme';
 
 export function Screen({
   children,
@@ -81,7 +81,7 @@ export function Body({ children, style }: { children: ReactNode; style?: StylePr
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }, style]}>{children}</View>
+    <View style={[styles.card, { backgroundColor: theme.card }, style]}>{children}</View>
   );
 }
 
@@ -128,7 +128,7 @@ export function Input(props: TextInputProps) {
     <TextInput
       placeholderTextColor={theme.muted}
       {...props}
-      style={[styles.input, { color: theme.text, backgroundColor: theme.card, borderColor: theme.border }, props.style]}
+      style={[styles.input, { color: theme.text, backgroundColor: theme.bg, borderColor: theme.border }, props.style]}
     />
   );
 }
@@ -214,11 +214,11 @@ export function Empty({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   screen: { padding: space.lg, gap: space.lg, paddingBottom: 120 },
-  title: { fontSize: 28, fontWeight: '700' },
+  title: { fontSize: 30, fontFamily: fonts.display, letterSpacing: -0.5 },
   label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  card: { borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, padding: space.lg, gap: space.sm },
-  button: { borderRadius: radius.md, paddingVertical: 14, paddingHorizontal: space.lg, alignItems: 'center' },
+  card: { borderRadius: radius.lg, padding: space.lg, gap: space.sm },
+  button: { borderRadius: radius.lg, paddingVertical: 15, paddingHorizontal: space.lg, alignItems: 'center' },
   buttonText: { fontSize: 16, fontWeight: '700' },
-  input: { borderRadius: radius.md, borderWidth: 1, paddingHorizontal: space.md, paddingVertical: 12, fontSize: 16, minWidth: 0 },
+  input: { borderRadius: radius.md, borderWidth: 1.5, paddingHorizontal: space.md, paddingVertical: 12, fontSize: 16, minWidth: 0 },
   chip: { borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
 });

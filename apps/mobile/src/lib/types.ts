@@ -16,6 +16,8 @@ export interface Group {
   currency: string;
   simplify_debts: boolean;
   image_path: string | null;
+  /** Clave de la paleta (ver lib/group-colors); null = sin elegir. */
+  color: string | null;
   group_members: Member[];
 }
 
