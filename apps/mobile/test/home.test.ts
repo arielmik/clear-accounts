@@ -56,19 +56,20 @@ describe('myGroupBalances', () => {
 });
 
 describe('colores de grupo', () => {
-  it('usa el color guardado, uno estable si no hay, y uno fijo para Personal', () => {
+  it('usa el color guardado, uno estable si no hay, y menta siempre para Personal', () => {
     expect(groupColorKey({ id: 'x', kind: 'trip', color: 'lilac' })).toBe('lilac');
     expect(groupColorKey({ id: 'x', kind: 'trip', color: null })).toBe(fallbackGroupColor('x'));
     expect(groupColorKey({ id: 'x', kind: 'trip', color: 'violeta' })).toBe(fallbackGroupColor('x'));
     expect(groupColorKey({ id: 'x', kind: 'personal', color: null })).toBe('mint');
-    expect(groupColorKey({ id: 'x', kind: 'personal', color: 'sun' })).toBe('sun');
+    expect(groupColorKey({ id: 'x', kind: 'personal', color: 'sun' })).toBe('mint');
     expect(fallbackGroupColor('cualquiera')).not.toBe('mint');
   });
 
   it('propone el primer color que el usuario no usa', () => {
     expect(freeGroupColor([])).toBe('coral');
-    expect(freeGroupColor(['coral', null, 'sky'])).toBe('sun');
+    expect(freeGroupColor(['coral', null, 'orange'])).toBe('sun');
     expect(GROUP_COLORS).toContain(freeGroupColor([...GROUP_COLORS]));
-    expect(freeGroupColor(['coral', 'sky', 'sun', 'lilac', 'pink', 'teal', 'lime', 'sand'])).not.toBe('mint');
+    expect(freeGroupColor(GROUP_COLORS.filter((c) => c !== 'mint'))).not.toBe('mint');
+    expect(GROUP_COLORS).toHaveLength(10);
   });
 });

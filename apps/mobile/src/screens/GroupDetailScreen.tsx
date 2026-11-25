@@ -389,11 +389,13 @@ export default function GroupDetailScreen() {
             {imageBusy ? <Loading /> : null}
             {imageError ? <Text style={{ color: theme.negative }}>{imageError}</Text> : null}
           </View>
-          <View style={{ gap: space.sm }}>
-            <Label>{t.groups.color}</Label>
-            <GroupColorPicker value={groupColorKey(g)} onChange={changeColor} />
-            {g.kind !== 'personal' ? <Text style={{ color: theme.muted, fontSize: 13 }}>{t.groups.colorHint}</Text> : null}
-          </View>
+          {g.kind !== 'personal' ? (
+            <View style={{ gap: space.sm }}>
+              <Label>{t.groups.color}</Label>
+              <GroupColorPicker value={groupColorKey(g)} onChange={changeColor} />
+              <Text style={{ color: theme.muted, fontSize: 13 }}>{t.groups.colorHint}</Text>
+            </View>
+          ) : null}
           <Card>
             {members.map((m, i) => {
               const pending = balanceOf.get(m.id);

@@ -339,6 +339,7 @@ describe('imágenes', () => {
     // El grupo personal también elige color (incluido el menta por defecto).
     const personal = await personalGroup(ANA);
     await as(ANA, (tx) => tx.query('select set_group_color($1, $2)', [personal, 'mint']));
+    await as(ANA, (tx) => tx.query("select set_group_color($1, $2)", [tripId, "orange"]));
     await expect(
       as(ANA, (tx) => tx.query('select set_group_color($1, $2)', [tripId, '#ff0000'])),
     ).rejects.toThrow(/check constraint/);

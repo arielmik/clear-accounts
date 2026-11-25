@@ -120,8 +120,6 @@ export const es = {
     sharedNote: 'Tus categorías se usan en gastos personales y para recategorizar tu parte de gastos compartidos. En los gastos de grupo se usan las del sistema, para que todos las vean.',
   },
   profile: {
-    personalColor: 'Color de tus gastos personales',
-    personalColorHint: 'Se usa al cargar un gasto personal. Solo lo ves vos.',
     name: 'Nombre',
     myCategories: 'Mis categorías',
     photo: 'Foto',
@@ -152,7 +150,7 @@ export const es = {
     color: 'Color',
     colorHint: 'El color lo ven todos los miembros del grupo.',
     colors: {
-      coral: 'Coral', sky: 'Celeste', sun: 'Amarillo', lilac: 'Violeta',
+      coral: 'Coral', orange: 'Naranja', sky: 'Celeste', sun: 'Amarillo', lilac: 'Violeta',
       pink: 'Rosa', teal: 'Turquesa', lime: 'Verde lima', sand: 'Arena', mint: 'Menta',
     },
     members: 'Miembros',

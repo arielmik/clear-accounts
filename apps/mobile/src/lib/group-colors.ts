@@ -2,15 +2,17 @@
 // Se guarda la clave en la base; acá se traduce al tono de cada modo.
 // Todos son claros, para que el texto oscuro (onGroup) se lea siempre.
 
-export const GROUP_COLORS = ['coral', 'sky', 'sun', 'lilac', 'pink', 'teal', 'lime', 'sand', 'mint'] as const;
+/** En orden de tono (cálidos → fríos → neutro), para que la grilla de 5 × 2 se vea armónica. */
+export const GROUP_COLORS = ['coral', 'orange', 'sun', 'lime', 'mint', 'teal', 'sky', 'lilac', 'pink', 'sand'] as const;
 export type GroupColor = (typeof GROUP_COLORS)[number];
 
-/** Verde menta: el color por defecto de "Personal". Los grupos no lo reciben automáticamente. */
+/** Verde menta: el color de "Personal". Los grupos pueden elegirlo, pero no lo reciben automáticamente. */
 export const PERSONAL_DEFAULT: GroupColor = 'mint';
 const AUTO_COLORS = GROUP_COLORS.filter((c) => c !== PERSONAL_DEFAULT);
 
 const groupLight: Record<GroupColor, string> = {
   coral: '#FFB3A3',
+  orange: '#FFC98F',
   sky: '#B5C3FF',
   sun: '#FFE39A',
   lilac: '#D9C2FF',
@@ -23,6 +25,7 @@ const groupLight: Record<GroupColor, string> = {
 
 const groupDark: typeof groupLight = {
   coral: '#E8907F',
+  orange: '#E8A766',
   sky: '#8E9FE8',
   sun: '#E3C56F',
   lilac: '#B59BE6',
@@ -44,10 +47,10 @@ export function fallbackGroupColor(groupId: string): GroupColor {
   return AUTO_COLORS[h % AUTO_COLORS.length]!;
 }
 
-/** Clave de color efectiva de un grupo (Personal: menta salvo que el usuario elija otro). */
+/** Clave de color efectiva de un grupo. Personal siempre es menta. */
 export function groupColorKey(group: { id: string; kind: string; color?: string | null }): GroupColor {
-  if (isGroupColor(group.color)) return group.color;
-  return group.kind === 'personal' ? PERSONAL_DEFAULT : fallbackGroupColor(group.id);
+  if (group.kind === 'personal') return PERSONAL_DEFAULT;
+  return isGroupColor(group.color) ? group.color : fallbackGroupColor(group.id);
 }
 
 /** Tono de fondo de un grupo para el modo actual. */
