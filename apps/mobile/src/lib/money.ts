@@ -49,9 +49,32 @@ export function formatMoney(minor: number, currency: string, locale = 'es-AR'): 
   }).format(minor / 10 ** digits);
 }
 
-/** Para precargar un input a partir de unidades mínimas ("1234,5"). */
+/** Para precargar un input a partir de unidades mínimas ("1.234,5"). */
 export function minorToInput(minor: number, currency: string): string {
   const digits = fractionDigits(currency);
   const value = minor / 10 ** digits;
-  return digits === 0 ? String(value) : String(value).replace('.', ',');
+  return formatAmountTyping('', digits === 0 ? String(value) : String(value).replace('.', ','), currency);
+}
+
+/**
+ * Formatea un monto mientras se escribe, con separador de miles: "12000" -> "12.000",
+ * "1234,5" -> "1.234,5". La coma es el decimal; un punto recién tipeado al final
+ * (teclados que muestran "." como decimal) se toma como coma. Recibe el texto
+ * anterior para distinguir ese punto de los separadores que ya estaban.
+ */
+export function formatAmountTyping(prev: string, next: string, currency: string): string {
+  let text = next;
+  if (text.length === prev.length + 1 && text.startsWith(prev) && text.endsWith('.')) {
+    text = `${text.slice(0, -1)},`;
+  }
+  text = text.replace(/[^\d,]/g, '');
+  const comma = text.indexOf(',');
+  const digits = fractionDigits(currency);
+  let intPart = comma === -1 ? text : text.slice(0, comma);
+  const decPart = comma === -1 ? null : text.slice(comma + 1).replace(/,/g, '').slice(0, digits);
+
+  intPart = intPart.replace(/^0+(?=\d)/, '');
+  if (decPart !== null && intPart === '') intPart = '0';
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return decPart === null || digits === 0 ? grouped : `${grouped},${decPart}`;
 }

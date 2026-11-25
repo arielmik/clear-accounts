@@ -1,27 +1,32 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, Switch, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
-import { space, useTheme } from '../components/theme';
-import { Button, Card, Chip, Input, Label, Loading, PasswordInput, Row, Screen, Title } from '../components/ui';
+import { SettingsRow, SettingsSection } from '../components/SettingsRow';
+import { fonts, space, useTheme } from '../components/theme';
+import { Button, Input, Loading, PasswordInput, Screen, Title } from '../components/ui';
 import { t } from '../i18n';
 import { setMyAvatar, updateMyEmail, updateMyName } from '../lib/api';
 import { removeStoredImage, replaceImage } from '../lib/images';
 import { useAuth, useUserId } from '../lib/auth';
 import { friendlyError } from '../lib/errors';
-import { useInvalidateGroups, useProfile, useRefreshAll } from '../lib/queries';
+import { useAvatars, useInvalidateGroups, useProfile, useRefreshAll } from '../lib/queries';
 import { disablePush, enablePush, signOut, usePushEnabled } from '../lib/push';
 import { supabase } from '../lib/supabase';
 import { buildInfo } from '../lib/updates';
 
 type Status = { kind: 'ok' | 'error'; text: string } | null;
+/** Qué ajuste está abierto para editar (uno a la vez). */
+type Open = 'name' | 'email' | 'password' | null;
 
 export default function ProfileScreen() {
   const theme = useTheme();
   const userId = useUserId();
   const { session } = useAuth();
   const profile = useProfile(userId);
+  const avatars = useAvatars();
   const invalidateGroups = useInvalidateGroups();
   const refreshAll = useRefreshAll();
 
@@ -37,6 +42,7 @@ export default function ProfileScreen() {
   const [pushEnabled, setPushEnabled] = usePushEnabled();
   const [pushStatus, setPushStatus] = useState<Status>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [open, setOpen] = useState<Open>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const avatarPath = profile.data?.avatar_path ?? null;
 
@@ -45,7 +51,7 @@ export default function ProfileScreen() {
     setPhotoError(null);
     try {
       const changed = await replaceImage({ kind: 'users', ownerId: userId, currentPath: avatarPath, assign: setMyAvatar });
-      if (changed) await profile.refetch();
+      if (changed) await Promise.all([profile.refetch(), avatars.refetch()]);
     } catch (e) {
       setPhotoError(friendlyError(e));
     } finally {
@@ -60,7 +66,7 @@ export default function ProfileScreen() {
     try {
       await setMyAvatar(null);
       await removeStoredImage(avatarPath);
-      await profile.refetch();
+      await Promise.all([profile.refetch(), avatars.refetch()]);
     } catch (e) {
       setPhotoError(friendlyError(e));
     } finally {
@@ -128,87 +134,141 @@ export default function ProfileScreen() {
   const statusText = (s: Status) =>
     s ? <Text style={{ color: s.kind === 'error' ? theme.negative : theme.positive }}>{s.text}</Text> : null;
 
+  const toggle = (key: Exclude<Open, null>) => setOpen((o) => (o === key ? null : key));
+
   return (
     <Screen onRefresh={refreshAll}>
       <Title>{t.tabs.profile}</Title>
+
+      {/* Foto, nombre y email: tocando la foto se cambia. */}
       <View style={{ alignItems: 'center', gap: space.sm }}>
         <Pressable accessibilityRole="button" accessibilityLabel={t.profile.changePhoto} onPress={changePhoto} disabled={photoBusy}>
-          <Avatar path={avatarPath} size={112} icon="person" />
+          <Avatar path={avatarPath} size={104} icon="person" />
+          <View style={[styles.cameraBadge, { backgroundColor: theme.accent, borderColor: theme.bg }]}>
+            <Ionicons name="camera" size={16} color={theme.accentText} />
+          </View>
         </Pressable>
-        <Row>
-          <Chip label={avatarPath ? t.profile.changePhoto : t.profile.addPhoto} onPress={changePhoto} />
-          {avatarPath ? <Chip label={t.profile.removePhoto} onPress={removePhoto} /> : null}
-        </Row>
+        <Text style={{ color: theme.text, fontFamily: fonts.display, fontSize: 24, letterSpacing: -0.3, textAlign: 'center' }}>
+          {profile.data?.display_name ?? ''}
+        </Text>
+        <Text style={{ color: theme.muted, fontSize: 14 }}>{session?.user.email}</Text>
+        {avatarPath ? (
+          <Pressable accessibilityRole="button" onPress={removePhoto} disabled={photoBusy} hitSlop={8}>
+            <Text style={{ color: theme.muted, fontSize: 13, textDecorationLine: 'underline' }}>{t.profile.removePhoto}</Text>
+          </Pressable>
+        ) : null}
         {photoBusy ? <Loading /> : null}
-        {photoError ? <Text style={{ color: theme.negative }}>{photoError}</Text> : null}
+        {photoError ? <Text style={{ color: theme.negative, textAlign: 'center' }}>{photoError}</Text> : null}
       </View>
-      <Card>
-        <Label>{t.profile.name}</Label>
-        <Input value={name} onChangeText={setName} autoComplete="name" />
-        {statusText(nameStatus)}
-        <Button
-          title={t.profile.saveName}
-          onPress={saveName}
-          loading={savingName}
-          disabled={!name.trim() || name.trim() === profile.data?.display_name}
+
+      <SettingsSection title={t.profile.account}>
+        <SettingsRow
+          first
+          icon="person-outline"
+          title={t.profile.name}
+          value={profile.data?.display_name}
+          expanded={open === 'name'}
+          onPress={() => toggle('name')}
+        >
+          <Input value={name} onChangeText={setName} autoComplete="name" autoFocus />
+          {statusText(nameStatus)}
+          <Button
+            title={t.profile.saveName}
+            onPress={saveName}
+            loading={savingName}
+            disabled={!name.trim() || name.trim() === profile.data?.display_name}
+          />
+        </SettingsRow>
+        <SettingsRow
+          icon="mail-outline"
+          title={t.profile.email}
+          value={session?.user.email}
+          expanded={open === 'email'}
+          onPress={() => toggle('email')}
+        >
+          <Input
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            autoFocus
+          />
+          {statusText(emailStatus)}
+          <Button
+            title={t.profile.changeEmail}
+            onPress={saveEmail}
+            loading={savingEmail}
+            disabled={!email.trim() || email.trim() === session?.user.email}
+          />
+        </SettingsRow>
+        <SettingsRow
+          icon="lock-closed-outline"
+          title={t.profile.password}
+          value="••••••••"
+          expanded={open === 'password'}
+          onPress={() => toggle('password')}
+        >
+          <PasswordInput
+            placeholder={t.profile.newPassword}
+            value={password}
+            onChangeText={setPassword}
+            autoComplete="new-password"
+            textContentType="newPassword"
+            autoFocus
+          />
+          {statusText(passwordStatus)}
+          <Button title={t.profile.changePassword} onPress={savePassword} loading={savingPassword} disabled={password.length < 6} />
+        </SettingsRow>
+      </SettingsSection>
+
+      <SettingsSection title={t.profile.preferences}>
+        <SettingsRow
+          first
+          icon="pricetags-outline"
+          title={t.profile.myCategories}
+          value={t.profile.myCategoriesHint}
+          onPress={() => router.push('/profile/categories')}
         />
-      </Card>
-      <Card>
-        <Label>{t.profile.email}</Label>
-        <Input
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-        />
-        {statusText(emailStatus)}
-        <Button
-          title={t.profile.changeEmail}
-          variant="secondary"
-          onPress={saveEmail}
-          loading={savingEmail}
-          disabled={!email.trim() || email.trim() === session?.user.email}
-        />
-      </Card>
-      <Card>
-        <Label>{t.profile.password}</Label>
-        <PasswordInput
-          placeholder={t.profile.newPassword}
-          value={password}
-          onChangeText={setPassword}
-          autoComplete="new-password"
-          textContentType="newPassword"
-        />
-        {statusText(passwordStatus)}
-        <Button
-          title={t.profile.changePassword}
-          variant="secondary"
-          onPress={savePassword}
-          loading={savingPassword}
-          disabled={password.length < 6}
-        />
-      </Card>
-      {pushEnabled !== null ? (
-        <Card>
-          <Label>{t.profile.notifications}</Label>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Text style={{ color: theme.text, fontSize: 16, flex: 1 }}>{t.profile.notifyExpenses}</Text>
-            <Switch
-              value={pushEnabled}
-              onValueChange={togglePush}
-              trackColor={{ true: theme.primary, false: theme.border }}
-              thumbColor={theme.card}
-            />
-          </Row>
-          {statusText(pushStatus)}
-        </Card>
-      ) : null}
-      <Button title={`🏷️ ${t.profile.myCategories}`} variant="secondary" onPress={() => router.push('/profile/categories')} />
-      <Button title={t.auth.signOut} variant="secondary" onPress={() => signOut()} />
+        {pushEnabled !== null ? (
+          <SettingsRow
+            icon="notifications-outline"
+            title={t.profile.notifications}
+            value={t.profile.notifyExpenses}
+            right={
+              <Switch
+                value={pushEnabled}
+                onValueChange={togglePush}
+                trackColor={{ true: theme.positive, false: theme.border }}
+                thumbColor="#FFFFFF"
+              />
+            }
+          />
+        ) : null}
+      </SettingsSection>
+      {statusText(pushStatus)}
+
+      <SettingsSection>
+        <SettingsRow first danger icon="log-out-outline" title={t.auth.signOut} onPress={() => signOut()} />
+      </SettingsSection>
+
       <Text style={{ color: theme.muted, textAlign: 'center', fontSize: 12 }}>
         {t.appName} v{Constants.expoConfig?.version ?? '?'} · {buildInfo()}
       </Text>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  cameraBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

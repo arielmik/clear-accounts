@@ -16,6 +16,8 @@ export interface Group {
   currency: string;
   simplify_debts: boolean;
   image_path: string | null;
+  /** Clave de la paleta (ver lib/group-colors); null = sin elegir. */
+  color: string | null;
   group_members: Member[];
 }
 
@@ -43,6 +45,8 @@ export interface ExpenseRow {
   created_at: string;
   expense_payers: { member_id: string; amount_minor: number }[];
   expense_shares: { member_id: string; amount_minor: number; split_value: number | null }[];
+  /** Foto del ticket, si tiene. */
+  expense_receipts?: { path: string } | null;
 }
 
 export interface LedgerRow {

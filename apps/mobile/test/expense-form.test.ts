@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildExpensePayload, initialFormState } from '../src/lib/expense-form';
+import { buildExpensePayload, fillRemaining, initialFormState, splitPreview } from '../src/lib/expense-form';
 import type { Group } from '../src/lib/types';
 
 const member = (id: string, user_id: string | null = null) => ({
@@ -17,6 +17,7 @@ const trip: Group = {
   currency: 'ARS',
   simplify_debts: true,
   image_path: null,
+  color: null,
   group_members: [member('ana', 'u-ana'), member('beto', 'u-beto'), member('vos', 'u-vos')],
 };
 
@@ -113,5 +114,36 @@ describe('formStateFromExpense', () => {
     expect(r.payload.id).toBe('e1');
     expect(r.payload.split_type).toBe(splitType);
     expect(r.payload.shares.map((s) => [s.member_id, s.amount_minor])).toEqual(shares.map((s) => [s.member_id, s.amount_minor]));
+  });
+});
+
+describe('splitPreview / fillRemaining', () => {
+  const base = initialFormState(trip, 'vos', '2026-11-25');
+
+  it('iguales: divide entre los participantes', () => {
+    const p = splitPreview({ ...base, participants: ['ana', 'vos'] }, trip, 10000);
+    expect(p.perMember).toEqual({ ana: 5000, vos: 5000 });
+    expect(p.assignedRatio).toBeNull();
+  });
+
+  it('porcentaje: monto por persona y lo que falta', () => {
+    const s = { ...base, splitType: 'percent' as const, values: { ana: '40', beto: '30', vos: '20' } };
+    const p = splitPreview(s, trip, 4800000);
+    expect(p.perMember).toEqual({ ana: 1920000, beto: 1440000, vos: 960000 });
+    expect(p.remaining).toBe(1000); // 10 %
+    expect(p.assignedRatio).toBeCloseTo(0.9);
+    expect(fillRemaining(s, trip, 4800000, 'vos').vos).toBe('30');
+  });
+
+  it('montos: completa lo que falta sobre lo que ya tenía', () => {
+    const s = { ...base, splitType: 'exact' as const, values: { ana: '60', vos: '' } };
+    expect(splitPreview(s, trip, 10000).remaining).toBe(4000);
+    const values = fillRemaining(s, trip, 10000, 'vos');
+    expect(buildExpensePayload({ ...s, description: 'x', amountText: '100', values }, trip).ok).toBe(true);
+  });
+
+  it('partes: proporcional a las unidades', () => {
+    const p = splitPreview({ ...base, splitType: 'shares', values: { ana: '2', vos: '1' } }, trip, 9000);
+    expect(p.perMember).toEqual({ ana: 6000, vos: 3000 });
   });
 });

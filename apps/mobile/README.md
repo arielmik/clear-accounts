@@ -17,6 +17,12 @@ Expo (SDK 58) + Expo Router + Supabase + React Query. La lógica de repartos y b
    - `20261122000400_hardening.sql`
    - `20261123000000_categories_delete_group.sql`
    - `20261123000100_revoke_anon.sql`
+   - `20261125000000_push_notifications.sql`
+   - `20261125000100_push_sent_table.sql`
+   - `20261126000000_group_color.sql` (color de cada grupo)
+   - `20261126000100_group_color_mint.sql`
+   - `20261126000200_group_color_orange.sql`
+   - `20261126000300_expense_receipts.sql` (foto del ticket)
 
    Convención: toda migración que cree funciones termina con
    `revoke execute on all functions in schema public from public, anon;`

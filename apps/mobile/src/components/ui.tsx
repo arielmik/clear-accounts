@@ -16,17 +16,23 @@ import {
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { t } from '../i18n';
-import { radius, space, useTheme } from './theme';
+import { fonts, radius, space, useTheme } from './theme';
 
 export function Screen({
   children,
   scroll = true,
   edges = ['top'],
   onRefresh,
+  header,
+  background,
 }: {
   children: ReactNode;
   scroll?: boolean;
   edges?: Edge[];
+  /** Bloque a todo el ancho arriba del contenido (por ejemplo, el encabezado de color de un grupo). */
+  header?: ReactNode;
+  /** Fondo detrás de la zona segura superior (para que el encabezado de color llegue hasta arriba). */
+  background?: string;
   /** Si se indica, deslizar hacia abajo recarga los datos. */
   onRefresh?: () => Promise<unknown>;
 }) {
@@ -43,10 +49,11 @@ export function Screen({
       }
     : undefined;
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={edges}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: background ?? theme.bg }} edges={edges}>
       {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.screen}
+          style={{ backgroundColor: theme.bg }}
+          contentContainerStyle={header ? { paddingBottom: 120 } : styles.screen}
           keyboardShouldPersistTaps="handled"
           refreshControl={
             refresh ? (
@@ -54,7 +61,14 @@ export function Screen({
             ) : undefined
           }
         >
-          {children}
+          {header ? (
+            <>
+              {header}
+              <View style={[styles.screen, { paddingBottom: 0 }]}>{children}</View>
+            </>
+          ) : (
+            children
+          )}
         </ScrollView>
       ) : (
         <View style={[styles.screen, { flex: 1 }]}>{children}</View>
@@ -81,7 +95,7 @@ export function Body({ children, style }: { children: ReactNode; style?: StylePr
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }, style]}>{children}</View>
+    <View style={[styles.card, { backgroundColor: theme.card }, style]}>{children}</View>
   );
 }
 
@@ -128,7 +142,7 @@ export function Input(props: TextInputProps) {
     <TextInput
       placeholderTextColor={theme.muted}
       {...props}
-      style={[styles.input, { color: theme.text, backgroundColor: theme.card, borderColor: theme.border }, props.style]}
+      style={[styles.input, { color: theme.text, backgroundColor: theme.bg, borderColor: theme.border }, props.style]}
     />
   );
 }
@@ -173,9 +187,45 @@ export function Chip({ label, selected, onPress }: { label: string; selected?: b
   );
 }
 
+/** Control segmentado: opciones excluyentes siempre visibles, a un toque. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly { key: T; label: string }[];
+  value: T;
+  onChange: (key: T) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View accessibilityRole="tablist" style={[styles.segmented, { backgroundColor: theme.chip }]}>
+      {options.map((o) => {
+        const on = o.key === value;
+        return (
+          <Pressable
+            key={o.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(o.key)}
+            style={[styles.segment, on && { backgroundColor: theme.bg, ...styles.segmentOn }]}
+          >
+            <Text style={{ color: on ? theme.text : theme.muted, fontWeight: '700', fontSize: 14 }}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function ChipRow({ children }: { children: ReactNode }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ flexGrow: 0 }}
+      contentContainerStyle={{ gap: space.sm, alignItems: 'center' }}
+    >
       {children}
     </ScrollView>
   );
@@ -214,11 +264,14 @@ export function Empty({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   screen: { padding: space.lg, gap: space.lg, paddingBottom: 120 },
-  title: { fontSize: 28, fontWeight: '700' },
+  title: { fontSize: 30, fontFamily: fonts.display, letterSpacing: -0.5 },
   label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  card: { borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, padding: space.lg, gap: space.sm },
-  button: { borderRadius: radius.md, paddingVertical: 14, paddingHorizontal: space.lg, alignItems: 'center' },
+  card: { borderRadius: radius.lg, padding: space.lg, gap: space.sm },
+  button: { borderRadius: radius.lg, paddingVertical: 15, paddingHorizontal: space.lg, alignItems: 'center' },
   buttonText: { fontSize: 16, fontWeight: '700' },
-  input: { borderRadius: radius.md, borderWidth: 1, paddingHorizontal: space.md, paddingVertical: 12, fontSize: 16, minWidth: 0 },
+  input: { borderRadius: radius.md, borderWidth: 1.5, paddingHorizontal: space.md, paddingVertical: 12, fontSize: 16, minWidth: 0 },
   chip: { borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  segmented: { flexDirection: 'row', borderRadius: radius.md, padding: 3, gap: 2 },
+  segment: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11 },
+  segmentOn: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
 });

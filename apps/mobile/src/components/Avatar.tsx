@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Text, View } from 'react-native';
 import { useImageUrl } from '../lib/images';
+import { useAvatars } from '../lib/queries';
 import { useTheme } from './theme';
 
 /**
@@ -50,4 +51,20 @@ export function Avatar({
       )}
     </View>
   );
+}
+
+/**
+ * Avatar de un miembro de grupo: su foto de perfil si tiene cuenta y cargó una;
+ * si no (o es un invitado sin cuenta), sus iniciales.
+ */
+export function MemberAvatar({
+  member,
+  size = 44,
+}: {
+  member: { user_id: string | null; display_name: string } | undefined;
+  size?: number;
+}) {
+  const avatars = useAvatars();
+  const path = member?.user_id ? avatars.data?.[member.user_id] : null;
+  return <Avatar path={path} size={size} name={member?.display_name ?? '?'} />;
 }

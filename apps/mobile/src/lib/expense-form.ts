@@ -154,3 +154,83 @@ export function buildExpensePayload(state: ExpenseFormState, group: Group): Buil
 }
 
 export { FULL_PERCENT_BPS };
+
+export interface SplitPreview {
+  /** Monto estimado de cada miembro (unidades mínimas); undefined = no participa / sin valor. */
+  perMember: Record<string, number | undefined>;
+  /** Para montos y %: cuánto se asignó, entre 0 y 1 (puede pasarse de 1). null en iguales y partes. */
+  assignedRatio: number | null;
+  /** Para montos y %: lo que falta asignar, en la unidad del reparto (minor o centésimos de %). */
+  remaining: number | null;
+}
+
+/** Vista previa del reparto mientras se escribe, para mostrar el monto de cada uno. */
+export function splitPreview(state: ExpenseFormState, group: Group, amountMinor: number): SplitPreview {
+  const members = activeMembers(group).map((m) => m.id);
+  const perMember: Record<string, number | undefined> = {};
+  const num = (id: string) => {
+    const text = state.values[id]?.trim();
+    if (!text) return null;
+    const n = Number(text.replace(',', '.'));
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
+  switch (state.splitType) {
+    case 'equal': {
+      const ids = members.filter((id) => state.participants.includes(id));
+      for (const id of ids) perMember[id] = Math.round(amountMinor / ids.length);
+      return { perMember, assignedRatio: null, remaining: null };
+    }
+    case 'shares': {
+      const units = members.map((id) => [id, num(id) ?? 0] as const);
+      const total = units.reduce((a, [, u]) => a + u, 0);
+      for (const [id, u] of units) if (u > 0 && total > 0) perMember[id] = Math.round((amountMinor * u) / total);
+      return { perMember, assignedRatio: null, remaining: null };
+    }
+    case 'percent': {
+      let bps = 0;
+      for (const id of members) {
+        const p = num(id);
+        if (p === null) continue;
+        bps += Math.round(p * 100);
+        perMember[id] = Math.round((amountMinor * p) / 100);
+      }
+      return { perMember, assignedRatio: bps / FULL_PERCENT_BPS, remaining: FULL_PERCENT_BPS - bps };
+    }
+    case 'exact': {
+      let assigned = 0;
+      for (const id of members) {
+        const text = state.values[id]?.trim();
+        const v = text ? parseAmount(text, group.currency) : null;
+        if (v === null) continue;
+        assigned += v;
+        perMember[id] = v;
+      }
+      return {
+        perMember,
+        assignedRatio: amountMinor > 0 ? assigned / amountMinor : null,
+        remaining: amountMinor - assigned,
+      };
+    }
+  }
+}
+
+/** Le suma a un miembro lo que falta asignar (montos o %). Devuelve los valores nuevos. */
+export function fillRemaining(
+  state: ExpenseFormState,
+  group: Group,
+  amountMinor: number,
+  memberId: string,
+): Record<string, string> {
+  const { remaining, perMember } = splitPreview(state, group, amountMinor);
+  if (!remaining || remaining <= 0) return state.values;
+  if (state.splitType === 'percent') {
+    const current = Math.round(Number((state.values[memberId] ?? '0').replace(',', '.') || 0) * 100);
+    const bps = current + remaining;
+    return { ...state.values, [memberId]: String(bps / 100).replace('.', ',') };
+  }
+  if (state.splitType === 'exact') {
+    return { ...state.values, [memberId]: minorToInput((perMember[memberId] ?? 0) + remaining, group.currency) };
+  }
+  return state.values;
+}

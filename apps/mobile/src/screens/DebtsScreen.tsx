@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { MemberAvatar } from '../components/Avatar';
 import { Money } from '../components/Money';
 import { space, useTheme } from '../components/theme';
 import { Card, Empty, ErrorState, Label, Loading, Row, Screen } from '../components/ui';
@@ -55,7 +56,11 @@ export default function DebtsScreen() {
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
           <Card>
-            <Row style={{ justifyContent: 'space-between' }}>
+            <Row style={{ justifyContent: 'space-between', gap: space.md }}>
+              <MemberAvatar
+                member={groups.data?.find((g) => g.id === d.groupId)?.group_members.find((m) => m.id === d.memberId)}
+                size={44}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: theme.text, fontSize: 17, fontWeight: '600' }}>{d.name}</Text>
                 <Text style={{ color: theme.muted }}>{t.debts.inGroup(d.groupName)}</Text>

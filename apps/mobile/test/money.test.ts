@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMoney, minorToInput, parseAmount } from '../src/lib/money';
+import { formatAmountTyping, formatMoney, minorToInput, parseAmount } from '../src/lib/money';
 
 describe('parseAmount', () => {
   it.each([
@@ -34,5 +34,33 @@ describe('formatMoney', () => {
 
   it('ida y vuelta con el input', () => {
     expect(parseAmount(minorToInput(123450, 'ARS'), 'ARS')).toBe(123450);
+  });
+});
+
+describe('formatAmountTyping', () => {
+  const f = (prev: string, next: string, currency = 'ARS') => formatAmountTyping(prev, next, currency);
+  it.each([
+    ['', '1', '1'],
+    ['1.200', '1.2000', '12.000'],
+    ['123.456', '123.4567', '1.234.567'],
+    ['12.000', '12.000,', '12.000,'],
+    ['12.000', '12.000.', '12.000,'], // punto recién tipeado = coma decimal
+    ['12.000,5', '12.000,55', '12.000,55'],
+    ['12.000,55', '12.000,559', '12.000,55'], // no más de 2 decimales
+    ['', ',', '0,'],
+    ['', '007', '7'],
+    ['12.000', '1.200', '1.200'], // borrar
+    ['', '$ 2.500', '2.500'],
+  ])('%s + tecla -> %s => %s', (prev, next, expected) => {
+    expect(f(prev, next)).toBe(expected);
+  });
+
+  it('sin decimales en monedas que no los usan', () => {
+    expect(formatAmountTyping('1.000', '1.000,', 'CLP')).toBe('1.000');
+  });
+
+  it('lo formateado se sigue leyendo bien', () => {
+    expect(parseAmount(formatAmountTyping('', '1234567,8', 'ARS'), 'ARS')).toBe(123456780);
+    expect(minorToInput(123450, 'ARS')).toBe('1.234,5');
   });
 });

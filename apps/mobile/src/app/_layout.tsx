@@ -1,3 +1,9 @@
+import {
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/bricolage-grotesque';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -34,7 +40,7 @@ function RootNavigator() {
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="group-form" options={{ title: t.groups.new, presentation: 'modal' }} />
-        <Stack.Screen name="expense-form" options={{ title: t.expense.new, presentation: 'modal' }} />
+        <Stack.Screen name="expense-form" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settle-form" options={{ title: t.settle.title, presentation: 'modal' }} />
         <Stack.Screen name="invite" options={{ title: t.invite.title, presentation: 'modal' }} />
       </Stack.Protected>
@@ -61,9 +67,16 @@ function MissingConfig() {
 }
 
 export default function RootLayout() {
+  // Si la fuente no carga, se sigue con la del sistema: nunca bloquea la app.
+  const [fontsLoaded, fontError] = useFonts({
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
+  });
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } }),
   );
+  if (!fontsLoaded && !fontError) return null;
   return (
     <SafeAreaProvider>
       <StatusBar style="auto" />
