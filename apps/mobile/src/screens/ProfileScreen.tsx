@@ -1,16 +1,17 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Switch, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { space, useTheme } from '../components/theme';
-import { Button, Card, Chip, Input, Label, Loading, Row, Screen, Title } from '../components/ui';
+import { Button, Card, Chip, Input, Label, Loading, PasswordInput, Row, Screen, Title } from '../components/ui';
 import { t } from '../i18n';
 import { setMyAvatar, updateMyEmail, updateMyName } from '../lib/api';
 import { removeStoredImage, replaceImage } from '../lib/images';
 import { useAuth, useUserId } from '../lib/auth';
 import { friendlyError } from '../lib/errors';
 import { useInvalidateGroups, useProfile, useRefreshAll } from '../lib/queries';
+import { disablePush, enablePush, signOut, usePushEnabled } from '../lib/push';
 import { supabase } from '../lib/supabase';
 import { buildInfo } from '../lib/updates';
 
@@ -30,6 +31,11 @@ export default function ProfileScreen() {
   const [savingEmail, setSavingEmail] = useState(false);
   const [nameStatus, setNameStatus] = useState<Status>(null);
   const [emailStatus, setEmailStatus] = useState<Status>(null);
+  const [password, setPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState<Status>(null);
+  const [pushEnabled, setPushEnabled] = usePushEnabled();
+  const [pushStatus, setPushStatus] = useState<Status>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const avatarPath = profile.data?.avatar_path ?? null;
@@ -93,6 +99,32 @@ export default function ProfileScreen() {
     }
   }
 
+  async function savePassword() {
+    setSavingPassword(true);
+    setPasswordStatus(null);
+    const { error } = await supabase.auth.updateUser({ password });
+    setSavingPassword(false);
+    if (error) return setPasswordStatus({ kind: 'error', text: friendlyError(error) });
+    setPassword('');
+    setPasswordStatus({ kind: 'ok', text: t.profile.passwordSaved });
+  }
+
+  async function togglePush(value: boolean) {
+    setPushStatus(null);
+    setPushEnabled(value);
+    try {
+      if (!value) return await disablePush();
+      const granted = await enablePush();
+      if (!granted) {
+        setPushEnabled(false);
+        setPushStatus({ kind: 'error', text: t.profile.notificationsDenied });
+      }
+    } catch (e) {
+      setPushEnabled(!value);
+      setPushStatus({ kind: 'error', text: friendlyError(e) });
+    }
+  }
+
   const statusText = (s: Status) =>
     s ? <Text style={{ color: s.kind === 'error' ? theme.negative : theme.positive }}>{s.text}</Text> : null;
 
@@ -139,8 +171,41 @@ export default function ProfileScreen() {
           disabled={!email.trim() || email.trim() === session?.user.email}
         />
       </Card>
+      <Card>
+        <Label>{t.profile.password}</Label>
+        <PasswordInput
+          placeholder={t.profile.newPassword}
+          value={password}
+          onChangeText={setPassword}
+          autoComplete="new-password"
+          textContentType="newPassword"
+        />
+        {statusText(passwordStatus)}
+        <Button
+          title={t.profile.changePassword}
+          variant="secondary"
+          onPress={savePassword}
+          loading={savingPassword}
+          disabled={password.length < 6}
+        />
+      </Card>
+      {pushEnabled !== null ? (
+        <Card>
+          <Label>{t.profile.notifications}</Label>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Text style={{ color: theme.text, fontSize: 16, flex: 1 }}>{t.profile.notifyExpenses}</Text>
+            <Switch
+              value={pushEnabled}
+              onValueChange={togglePush}
+              trackColor={{ true: theme.primary, false: theme.border }}
+              thumbColor={theme.card}
+            />
+          </Row>
+          {statusText(pushStatus)}
+        </Card>
+      ) : null}
       <Button title={`🏷️ ${t.profile.myCategories}`} variant="secondary" onPress={() => router.push('/profile/categories')} />
-      <Button title={t.auth.signOut} variant="secondary" onPress={() => supabase.auth.signOut()} />
+      <Button title={t.auth.signOut} variant="secondary" onPress={() => signOut()} />
       <Text style={{ color: theme.muted, textAlign: 'center', fontSize: 12 }}>
         {t.appName} v{Constants.expoConfig?.version ?? '?'} · {buildInfo()}
       </Text>

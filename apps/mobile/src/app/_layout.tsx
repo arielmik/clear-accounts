@@ -8,6 +8,7 @@ import { UpdateBanner } from '../components/UpdateBanner';
 import { Body, Screen, Title } from '../components/ui';
 import { t } from '../i18n';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { usePushSetup } from '../lib/push';
 import { setupFocusRefetch, useRealtimeSync } from '../lib/realtime';
 import { isSupabaseConfigured, missingEnvVars } from '../lib/supabase';
 
@@ -17,6 +18,7 @@ function RootNavigator() {
   const { session, loading } = useAuth();
   const theme = useTheme();
   useRealtimeSync(!!session);
+  usePushSetup(!!session);
   if (loading) return null;
 
   return (

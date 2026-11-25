@@ -507,3 +507,89 @@ describe('convención de seguridad', () => {
     expect(r.rows.map((x) => x.proname)).toEqual([]);
   });
 });
+
+describe('notificaciones push', () => {
+  const ANA_TOKEN = 'ExponentPushToken[ana]';
+  const BETO_TOKEN = 'ExponentPushToken[beto]';
+
+  async function newExpense(userId: string, groupId: string, memberIdForAll: string): Promise<string> {
+    return as(userId, async (tx) => {
+      const r = await tx.query<{ id: string }>('select save_expense($1) as id', [
+        {
+          group_id: groupId,
+          description: 'Nafta',
+          amount_minor: 100000,
+          currency: 'ARS',
+          split_type: 'equal',
+          payers: [{ member_id: memberIdForAll, amount_minor: 100000 }],
+          shares: [{ member_id: memberIdForAll, amount_minor: 100000 }],
+        },
+      ]);
+      return r.rows[0]!.id;
+    });
+  }
+
+  let casaId: string;
+  let anaCasa: string;
+
+  beforeAll(async () => {
+    casaId = await as(ANA, async (tx) => {
+      const r = await tx.query<{ id: string }>(`select create_group('Casa', 'home', 'ARS') as id`);
+      return r.rows[0]!.id;
+    });
+    const invite = await as(ANA, async (tx) => {
+      const r = await tx.query<{ token: string }>(
+        `insert into group_invites (group_id, created_by) values ($1, $2) returning token`,
+        [casaId, ANA],
+      );
+      return r.rows[0]!.token;
+    });
+    await as(BETO, (tx) => tx.query('select accept_invite($1)', [invite]));
+    anaCasa = await memberId(casaId, ANA);
+    await as(ANA, (tx) => tx.query(`select register_push_token($1, 'android')`, [ANA_TOKEN]));
+    await as(BETO, (tx) => tx.query(`select register_push_token($1, 'android')`, [BETO_TOKEN]));
+  });
+
+  it('avisa a los demás miembros, no al autor, y una sola vez', async () => {
+    const id = await newExpense(ANA, casaId, anaCasa);
+    const r = await db.query<{ token: string; actor_name: string; group_name: string }>(
+      'select * from claim_expense_push($1, $2)',
+      [id, ANA],
+    );
+    expect(r.rows.map((x) => x.token)).toEqual([BETO_TOKEN]);
+    expect(r.rows[0]).toMatchObject({ actor_name: 'Ana', group_name: 'Casa' });
+    const again = await db.query('select * from claim_expense_push($1, $2)', [id, ANA]);
+    expect(again.rows).toEqual([]);
+  });
+
+  it('no avisa si quien lo pide no es el autor', async () => {
+    const id = await newExpense(ANA, casaId, anaCasa);
+    const r = await db.query('select * from claim_expense_push($1, $2)', [id, BETO]);
+    expect(r.rows).toEqual([]);
+  });
+
+  it('los gastos personales no notifican', async () => {
+    const personal = await personalGroup(ANA);
+    const id = await newExpense(ANA, personal, await memberId(personal, ANA));
+    const r = await db.query('select * from claim_expense_push($1, $2)', [id, ANA]);
+    expect(r.rows).toEqual([]);
+  });
+
+  it('si otra persona entra en el mismo celular, el token pasa a ella', async () => {
+    await as(EVA, (tx) => tx.query(`select register_push_token($1, 'android')`, [BETO_TOKEN]));
+    const owner = await db.query<{ user_id: string }>('select user_id from push_tokens where token = $1', [BETO_TOKEN]);
+    expect(owner.rows[0]!.user_id).toBe(EVA);
+    // Beto no puede darlo de baja (ya no es suyo); Eva sí.
+    await as(BETO, (tx) => tx.query('select unregister_push_token($1)', [BETO_TOKEN]));
+    expect((await db.query('select 1 from push_tokens where token = $1', [BETO_TOKEN])).rows.length).toBe(1);
+    await as(EVA, (tx) => tx.query('select unregister_push_token($1)', [BETO_TOKEN]));
+    expect((await db.query('select 1 from push_tokens where token = $1', [BETO_TOKEN])).rows.length).toBe(0);
+  });
+
+  it('la app no puede leer tokens ni pedir los destinatarios', async () => {
+    await expect(as(ANA, (tx) => tx.query('select * from push_tokens'))).rejects.toThrow(/permission denied/);
+    await expect(
+      as(ANA, (tx) => tx.query('select * from claim_expense_push($1, $2)', [tripId, ANA])),
+    ).rejects.toThrow(/permission denied/);
+  });
+});
