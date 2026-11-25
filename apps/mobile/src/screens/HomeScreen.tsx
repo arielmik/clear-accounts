@@ -105,7 +105,10 @@ function DebtCard({
       onPress={onPress}
       style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.7 : 1 })}
     >
-      <Card>
+      {/* Franja de color además del texto: con "Texto de alto contraste" de Android
+          (Accesibilidad) el sistema pinta todo texto en blanco/negro y el monto pierde
+          el verde/rojo; una View con fondo no se ve afectada. */}
+      <Card style={minor !== 0 ? { borderLeftWidth: 4, borderLeftColor: color } : undefined}>
         <Row style={{ justifyContent: 'space-between' }}>
           <Label>{label}</Label>
           <Ionicons name="chevron-forward" size={16} color={theme.muted} />
