@@ -45,6 +45,8 @@ export interface ExpenseRow {
   created_at: string;
   expense_payers: { member_id: string; amount_minor: number }[];
   expense_shares: { member_id: string; amount_minor: number; split_value: number | null }[];
+  /** Foto del ticket, si tiene. */
+  expense_receipts?: { path: string } | null;
 }
 
 export interface LedgerRow {

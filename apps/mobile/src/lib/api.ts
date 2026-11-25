@@ -42,12 +42,16 @@ export async function fetchCategories(): Promise<Category[]> {
 }
 
 const EXPENSE_FIELDS =
-  'id, group_id, description, amount_minor, currency, spent_at, category_id, split_type, created_by, created_at, expense_payers(member_id, amount_minor), expense_shares(member_id, amount_minor, split_value)';
+  'id, group_id, description, amount_minor, currency, spent_at, category_id, split_type, created_by, created_at, expense_payers(member_id, amount_minor), expense_shares(member_id, amount_minor, split_value), expense_receipts(path)';
 
 /** PostgREST devuelve bigint como string: normalizamos a number. */
 function normalizeExpense(e: ExpenseRow): ExpenseRow {
+  // Relación 1 a 1: PostgREST la devuelve como objeto, pero aceptamos también lista.
+  const r = e.expense_receipts as unknown;
+  const receipt = Array.isArray(r) ? (r[0] ?? null) : (r ?? null);
   return {
     ...e,
+    expense_receipts: receipt as ExpenseRow['expense_receipts'],
     amount_minor: Number(e.amount_minor),
     expense_payers: e.expense_payers.map((p) => ({ ...p, amount_minor: Number(p.amount_minor) })),
     expense_shares: e.expense_shares.map((x) => ({
@@ -78,7 +82,7 @@ export async function fetchGroupExpenses(groupId: string): Promise<ExpenseRow[]>
       .is('deleted_at', null)
       .order('spent_at', { ascending: false })
       .order('created_at', { ascending: false }),
-  ) as ExpenseRow[];
+  ) as unknown as ExpenseRow[];
   return rows.map(normalizeExpense);
 }
 
@@ -207,6 +211,11 @@ export async function fetchAvatars(): Promise<Record<string, string>> {
     avatar_path: string;
   }[];
   return Object.fromEntries(rows.map((r) => [r.id, r.avatar_path]));
+}
+
+/** Asigna (o quita, con null) la foto del ticket. Devuelve la ruta anterior, para borrar el archivo. */
+export async function setExpenseReceipt(expenseId: string, path: string | null): Promise<string | null> {
+  return unwrap(await supabase.rpc('set_expense_receipt', { p_expense_id: expenseId, p_path: path })) as string | null;
 }
 
 export async function setGroupColor(groupId: string, color: string): Promise<void> {

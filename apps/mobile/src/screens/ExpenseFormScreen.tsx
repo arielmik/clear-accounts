@@ -1,13 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MemberAvatar } from '../components/Avatar';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { DateField } from '../components/DateField';
 import { fonts, radius, space, useTheme } from '../components/theme';
-import { Button, ErrorState, Input, Label, Loading, Row, Screen, Segmented } from '../components/ui';
+import { Button, Chip, ChipRow, ErrorState, Input, Label, Loading, Row, Screen, Segmented } from '../components/ui';
+import { ReceiptThumb } from '../components/Receipt';
 import { t } from '../i18n';
 import { useUserId } from '../lib/auth';
 import { isoDate } from '../lib/dates';
@@ -21,7 +23,9 @@ import {
   initialFormState,
   type ExpenseFormState,
 } from '../lib/expense-form';
+import { setExpenseReceipt } from '../lib/api';
 import { groupColorKey, groupColorValue } from '../lib/group-colors';
+import { pickReceipt, removeStoredImage, uploadReceipt } from '../lib/images';
 import { formatAmountTyping, formatMoney, parseAmount } from '../lib/money';
 import { useCategories, useExpense, useGroups, useSaveExpense } from '../lib/queries';
 import type { ExpenseRow, Group, Member, SplitType } from '../lib/types';
@@ -80,7 +84,10 @@ function NewExpense({ groupId: initialGroupId }: { groupId?: string | undefined 
   );
 }
 
-type Carry = Pick<ExpenseFormState, 'amountText' | 'description' | 'categoryId' | 'spentAt'>;
+/** Ticket elegido en el formulario: el ya guardado o uno nuevo (uri local, se sube al guardar). */
+type ReceiptState = { path: string } | { uri: string } | null;
+
+type Carry = Pick<ExpenseFormState, 'amountText' | 'description' | 'categoryId' | 'spentAt'> & { receipt?: ReceiptState };
 
 function ExpenseForm({
   group,
@@ -108,6 +115,38 @@ function ExpenseForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [pickingGroup, setPickingGroup] = useState(false);
+  const savedReceiptPath = expense?.expense_receipts?.path ?? null;
+  const [receipt, setReceipt] = useState<ReceiptState>(savedReceiptPath ? { path: savedReceiptPath } : (carry?.receipt ?? null));
+  const [savingReceipt, setSavingReceipt] = useState(false);
+  const qc = useQueryClient();
+
+  async function chooseReceipt(source: 'camera' | 'library') {
+    setError(null);
+    try {
+      const uri = await pickReceipt(source);
+      if (uri) setReceipt({ uri });
+    } catch (e) {
+      setError(e instanceof Error && e.message === 'CAMERA_DENIED' ? t.expense.cameraDenied : friendlyError(e));
+    }
+  }
+
+  /** Sube el ticket nuevo o quita el anterior. Si falla, el gasto ya quedó guardado: solo se avisa. */
+  async function syncReceipt(expenseId: string) {
+    const changedToNew = receipt && 'uri' in receipt;
+    const removed = !receipt && savedReceiptPath;
+    if (!changedToNew && !removed) return;
+    try {
+      const path = changedToNew ? await uploadReceipt(group.id, receipt.uri) : null;
+      const old = await setExpenseReceipt(expenseId, path);
+      if (old && old !== path) await removeStoredImage(old);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['expense'] }),
+        qc.invalidateQueries({ queryKey: ['expenses'] }),
+      ]);
+    } catch {
+      Alert.alert(t.expense.receiptFailedTitle, t.expense.receiptFailed);
+    }
+  }
   const isPersonal = group.kind === 'personal';
 
   const set = <K extends keyof ExpenseFormState>(key: K, value: ExpenseFormState[K]) =>
@@ -147,10 +186,14 @@ function ExpenseForm({
     const result = buildExpensePayload(form, group);
     if (!result.ok) return setError(result.error);
     try {
-      await save.mutateAsync(result.payload);
+      const id = await save.mutateAsync(result.payload);
+      setSavingReceipt(true);
+      await syncReceipt(id);
       router.back();
     } catch (e) {
       setError(friendlyError(e));
+    } finally {
+      setSavingReceipt(false);
     }
   }
 
@@ -206,6 +249,7 @@ function ExpenseForm({
                           description: form.description,
                           categoryId: form.categoryId,
                           spentAt: form.spentAt,
+                          receipt,
                         });
                     }}
                     style={{
@@ -377,9 +421,28 @@ function ExpenseForm({
             <Label>{t.expense.when}</Label>
             <DateField value={form.spentAt} onChange={(v) => set('spentAt', v)} />
 
+            {/* Ticket: foto opcional, con la cámara o de la galería. */}
+            <Label>{t.expense.receipt}</Label>
+            {receipt ? (
+              <Row style={{ gap: space.md }}>
+                <ReceiptThumb source={receipt} size={52} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ color: theme.text, fontWeight: '700' }}>{t.expense.receiptAttached}</Text>
+                  <Text style={{ color: theme.muted, fontSize: 12 }}>{t.expense.receiptTapToOpen}</Text>
+                </View>
+                <Chip label={t.expense.change} onPress={() => chooseReceipt(Platform.OS === 'web' ? 'library' : 'camera')} />
+                <Chip label={t.expense.removeReceipt} onPress={() => setReceipt(null)} />
+              </Row>
+            ) : (
+              <ChipRow>
+                {Platform.OS !== 'web' ? <Chip label={t.expense.takePhoto} onPress={() => chooseReceipt('camera')} /> : null}
+                <Chip label={t.expense.fromGallery} onPress={() => chooseReceipt('library')} />
+              </ChipRow>
+            )}
+
             {error ? <Text style={{ color: theme.negative }}>{error}</Text> : null}
             <View style={{ marginTop: 'auto', paddingTop: space.sm }}>
-              <Button title={t.common.save} onPress={submit} loading={save.isPending} />
+              <Button title={t.common.save} onPress={submit} loading={save.isPending || savingReceipt} />
             </View>
           </View>
         </ScrollView>

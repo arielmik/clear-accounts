@@ -20,7 +20,7 @@ const light = {
   negative: '#C9361C',
   positiveSoft: '#DDF6EC',
   negativeSoft: '#FFE4DE',
-  chip: '#F3F1F7',
+  chip: '#E9E5F0',
   /** Tarjeta destacada (consumo del mes). */
   hero: '#16131F',
   heroText: '#FFFFFF',

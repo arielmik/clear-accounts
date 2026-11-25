@@ -315,6 +315,7 @@ export default function GroupDetailScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>
                     {e.description}
+                    {e.expense_receipts ? '  📎' : ''}
                   </Text>
                   <Text style={{ color: theme.muted, fontSize: 12 }} numberOfLines={1}>
                     {iPaid ? t.groups.youPaid : t.groups.paidByName(payer ? nameOf(payer.member_id) : '?')} · {shortDate(e.spent_at)}

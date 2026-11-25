@@ -80,3 +80,40 @@ export function useImageUrl(path: string | null | undefined) {
     },
   });
 }
+
+// ─────────────── Foto del ticket ───────────────
+
+const RECEIPT_MAX_SIDE = 1400;
+
+/**
+ * Saca una foto con la cámara o la elige de la galería (sin recorte: el ticket entero).
+ * Devuelve la URI local, o null si el usuario cancela o no da permiso.
+ */
+export async function pickReceipt(source: 'camera' | 'library'): Promise<string | null> {
+  if (source === 'camera') {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) throw new Error('CAMERA_DENIED');
+  }
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1 };
+  const result =
+    source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+  if (result.canceled) return null;
+  return result.assets[0]?.uri ?? null;
+}
+
+/** Achica (lado mayor 1400 px) y comprime el ticket, y lo sube a la carpeta del grupo. */
+export async function uploadReceipt(groupId: string, uri: string): Promise<string> {
+  const loaded = await ImageManipulator.manipulate(uri).renderAsync();
+  const scale = Math.min(1, RECEIPT_MAX_SIDE / Math.max(loaded.width, loaded.height));
+  const context = ImageManipulator.manipulate(uri);
+  if (scale < 1) context.resize({ width: Math.round(loaded.width * scale), height: Math.round(loaded.height * scale) });
+  const image = await context.renderAsync();
+  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.7, base64: true });
+  if (!saved.base64) throw new Error('No se pudo procesar la imagen');
+  const path = newImagePath('groups', groupId);
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, base64ToArrayBuffer(saved.base64), { contentType: 'image/jpeg', upsert: false });
+  if (error) throw new Error(error.message);
+  return path;
+}

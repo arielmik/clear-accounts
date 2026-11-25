@@ -315,6 +315,53 @@ describe('imágenes', () => {
   const upload = (tx: Pick<PGlite, 'query'>, name: string) =>
     tx.query(`insert into storage.objects (bucket_id, name) values ('images', $1)`, [name]);
 
+  it('ticket: lo asigna un miembro, lo ven solo los miembros y no toca el gasto ni el historial', async () => {
+    const expenseId = await as(ANA, async (tx) => {
+      const r = await tx.query<{ id: string }>('select save_expense($1) as id', [
+        {
+          group_id: tripId, description: 'Súper', amount_minor: 100000, currency: 'ARS', split_type: 'equal',
+          payers: [{ member_id: anaM, amount_minor: 100000 }],
+          shares: [{ member_id: anaM, amount_minor: 100000 }],
+        },
+      ]);
+      return r.rows[0]!.id;
+    });
+    const logBefore = await db.query('select * from activity_log where entity_id = $1', [expenseId]);
+    const first = `groups/${tripId}/ticket1.jpg`;
+    const second = `groups/${tripId}/ticket2.jpg`;
+
+    const old1 = await as(ANA, async (tx) => {
+      await upload(tx, first);
+      const r = await tx.query<{ old: string | null }>('select set_expense_receipt($1, $2) as old', [expenseId, first]);
+      return r.rows[0]!.old;
+    });
+    expect(old1).toBeNull();
+    const old2 = await as(ANA, async (tx) => {
+      const r = await tx.query<{ old: string | null }>('select set_expense_receipt($1, $2) as old', [expenseId, second]);
+      return r.rows[0]!.old;
+    });
+    expect(old2).toBe(first);
+
+    const seen = await as(ANA, (tx) => tx.query<{ path: string }>('select path from expense_receipts where expense_id = $1', [expenseId]));
+    expect(seen.rows[0]!.path).toBe(second);
+    const hidden = await as(EVA, (tx) => tx.query('select path from expense_receipts where expense_id = $1', [expenseId]));
+    expect(hidden.rows).toHaveLength(0);
+
+    await expect(
+      as(EVA, (tx) => tx.query('select set_expense_receipt($1, $2)', [expenseId, null])),
+    ).rejects.toThrow(/NOT_A_MEMBER/);
+    const other = await personalGroup(ANA);
+    await expect(
+      as(ANA, (tx) => tx.query('select set_expense_receipt($1, $2)', [expenseId, `groups/${other}/x.jpg`])),
+    ).rejects.toThrow(/INVALID_IMAGE_PATH/);
+
+    await as(ANA, (tx) => tx.query('select set_expense_receipt($1, null)', [expenseId]));
+    const gone = await db.query('select * from expense_receipts where expense_id = $1', [expenseId]);
+    expect(gone.rows).toHaveLength(0);
+    const logAfter = await db.query('select * from activity_log where entity_id = $1', [expenseId]);
+    expect(logAfter.rows.length).toBe(logBefore.rows.length);
+  });
+
   it('un miembro sube y asigna la imagen del grupo', async () => {
     const path = `groups/${tripId}/foto.jpg`;
     await as(ANA, async (tx) => {

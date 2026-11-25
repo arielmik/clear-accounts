@@ -4,7 +4,10 @@ import { Text, View } from 'react-native';
 import { MemberAvatar } from '../components/Avatar';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { Money } from '../components/Money';
-import { space, useTheme } from '../components/theme';
+import { fonts, space, useTheme } from '../components/theme';
+import { ReceiptThumb } from '../components/Receipt';
+import { groupColorKey, groupColorValue } from '../lib/group-colors';
+import { formatMoney } from '../lib/money';
 import { Button, Card, Chip, ErrorState, Label, Loading, Row, Screen } from '../components/ui';
 import { t } from '../i18n';
 import { useUserId } from '../lib/auth';
@@ -79,16 +82,28 @@ export default function ExpenseDetailScreen() {
   return (
     <Screen edges={[]} onRefresh={refreshAll}>
       <Stack.Screen options={{ title: t.expense.detail }} />
-      <Card style={{ alignItems: 'center', paddingVertical: space.xl }}>
+      <Card style={{ alignItems: 'center', paddingVertical: space.xl, backgroundColor: g ? groupColorValue(groupColorKey(g), theme) : theme.card }}>
         <Text style={{ fontSize: 36 }}>{categoryEmoji(index.rootOf(e.category_id))}</Text>
-        <Text style={{ color: theme.text, fontSize: 20, fontWeight: '600', textAlign: 'center' }}>{e.description}</Text>
-        <Money minor={e.amount_minor} currency={e.currency} style={{ fontSize: 34 }} />
+        <Text style={{ color: theme.onGroup, fontSize: 20, fontWeight: '700', textAlign: 'center' }}>{e.description}</Text>
+        <Text style={{ color: theme.onGroup, fontFamily: fonts.display, fontSize: 38, fontVariant: ['tabular-nums'] }}>
+          {formatMoney(e.amount_minor, e.currency)}
+        </Text>
         {!isPersonal ? (
-          <Text style={{ color: theme.muted }}>
-            {t.expense.yourShare}: <Money minor={myShare} currency={e.currency} style={{ color: theme.muted }} />
+          <Text style={{ color: theme.onGroup, opacity: 0.75, fontWeight: '600' }}>
+            {t.expense.yourShare}: {formatMoney(myShare, e.currency)}
           </Text>
         ) : null}
       </Card>
+
+      {e.expense_receipts ? (
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+          <ReceiptThumb source={{ path: e.expense_receipts.path }} size={56} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 15 }}>{t.expense.receipt}</Text>
+            <Text style={{ color: theme.muted, fontSize: 13 }}>{t.expense.receiptTapToOpen}</Text>
+          </View>
+        </Card>
+      ) : null}
 
       <Card>
         <DetailRow label={t.expense.date} value={date} />
