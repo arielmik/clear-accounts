@@ -670,3 +670,79 @@ describe('notificaciones push', () => {
     ).rejects.toThrow(/permission denied/);
   });
 });
+
+describe('medios de pago', () => {
+  let groupId: string;
+  let anaG: string;
+  let betoG: string;
+
+  beforeAll(async () => {
+    groupId = await as(ANA, async (tx) =>
+      (await tx.query<{ id: string }>(`select create_group('Medios de pago', 'other', 'ARS') as id`)).rows[0]!.id,
+    );
+    const token = await as(ANA, async (tx) =>
+      (await tx.query<{ token: string }>(`insert into group_invites (group_id, created_by) values ($1, $2) returning token`, [groupId, ANA]))
+        .rows[0]!.token,
+    );
+    await as(BETO, (tx) => tx.query('select accept_invite($1)', [token]));
+    anaG = await memberId(groupId, ANA);
+    betoG = await memberId(groupId, BETO);
+  });
+
+  const cenaCon = (pm: string | null | undefined, id?: string) => ({
+    ...(id ? { id } : {}),
+    group_id: groupId,
+    description: 'Cena con medio de pago',
+    amount_minor: 2000,
+    currency: 'ARS',
+    split_type: 'equal',
+    payers: [{ member_id: anaG, amount_minor: 2000 }],
+    shares: [
+      { member_id: anaG, amount_minor: 1000 },
+      { member_id: betoG, amount_minor: 1000 },
+    ],
+    ...(pm !== undefined ? { payment_method_id: pm } : {}),
+  });
+  const systemMethod = async (key: string) =>
+    (await db.query<{ id: string }>('select id from payment_methods where system_key = $1', [key])).rows[0]!.id;
+  const ledgerMethod = async (user: string, expenseId: string) =>
+    as(user, async (tx) =>
+      (await tx.query<{ payment_method_id: string | null }>('select payment_method_id from my_ledger where expense_id = $1', [expenseId]))
+        .rows[0]!.payment_method_id,
+    );
+
+  it('es opcional, privado de quien lo carga y se ve en su registro personal', async () => {
+    const credit = await systemMethod('credit');
+    // Sin medio de pago: el gasto se guarda igual.
+    const sin = await as(ANA, async (tx) => (await tx.query<{ id: string }>('select save_expense($1) as id', [cenaCon(undefined)])).rows[0]!.id);
+    expect(await ledgerMethod(ANA, sin)).toBeNull();
+
+    const id = await as(ANA, async (tx) => (await tx.query<{ id: string }>('select save_expense($1) as id', [cenaCon(credit)])).rows[0]!.id);
+    expect(await ledgerMethod(ANA, id)).toBe(credit);
+    // Beto comparte el gasto pero no ve con qué pagó Ana.
+    expect(await ledgerMethod(BETO, id)).toBeNull();
+    expect(await as(BETO, async (tx) => (await tx.query('select * from expense_payment_methods')).rows)).toEqual([]);
+
+    // Editar sin mandar el campo no lo toca; con null, lo quita.
+    await as(ANA, (tx) => tx.query('select save_expense($1)', [cenaCon(undefined, id)]));
+    expect(await ledgerMethod(ANA, id)).toBe(credit);
+    await as(ANA, (tx) => tx.query('select save_expense($1)', [cenaCon(null, id)]));
+    expect(await ledgerMethod(ANA, id)).toBeNull();
+  });
+
+  it('cada uno crea los suyos, no ve los de otros y no puede usar uno ajeno', async () => {
+    const mine = await as(ANA, async (tx) =>
+      (await tx.query<{ id: string }>(`insert into payment_methods (owner_id, name, icon) values ($1, 'Visa del banco', '💳') returning id`, [ANA]))
+        .rows[0]!.id,
+    );
+    expect(await as(BETO, async (tx) => (await tx.query('select id from payment_methods where id = $1', [mine])).rows)).toEqual([]);
+    await expect(
+      as(BETO, (tx) => tx.query(`insert into payment_methods (owner_id, name) values ($1, 'X')`, [ANA])),
+    ).rejects.toThrow(/row-level security/);
+
+    const id = await as(ANA, async (tx) => (await tx.query<{ id: string }>('select save_expense($1) as id', [cenaCon(mine)])).rows[0]!.id);
+    expect(await ledgerMethod(ANA, id)).toBe(mine);
+    // Beto no puede usar el medio de Ana en su parte (y el gasto no se guarda a medias).
+    await expect(as(BETO, (tx) => tx.query('select save_expense($1)', [cenaCon(mine, id)]))).rejects.toThrow(/row-level security/);
+  });
+});

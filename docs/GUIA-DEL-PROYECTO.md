@@ -251,7 +251,7 @@ Expo Router convierte la estructura de carpetas en navegación:
 | `(tabs)/(home)/` | Inicio, detalle de gasto, "Te deben" / "Debés". |
 | `(tabs)/groups/` | Lista de grupos → detalle del grupo (`[id].tsx`) → detalle de gasto. |
 | `(tabs)/ledger/` | Mis gastos. |
-| `(tabs)/profile/` | Perfil y Mis categorías. |
+| `(tabs)/profile/` | Perfil, Mis categorías y Mis medios de pago. |
 | `expense-form.tsx`, `group-form.tsx`, `settle-form.tsx`, `invite.tsx` | Modales (se abren encima). |
 | `join/[token].tsx` | Se abre con el link de invitación `clearaccounts://join/<token>`. |
 

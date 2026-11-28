@@ -10,7 +10,7 @@ const byId = new Map([cat('food'), cat('food.out', 'food'), cat('home'), cat('tr
 
 const row = (spent_at: string, consumed_minor: number, category_id: string | null, currency = 'ARS'): LedgerRow => ({
   expense_id: Math.random().toString(), group_id: 'g', group_name: 'G', is_personal: true, description: 'x',
-  spent_at, currency, consumed_minor, paid_minor: consumed_minor, category_id, created_at: spent_at,
+  spent_at, currency, consumed_minor, paid_minor: consumed_minor, category_id, created_at: spent_at, payment_method_id: null,
 });
 
 describe('monthSummary', () => {

@@ -12,6 +12,7 @@ import { Button, Card, Chip, ErrorState, Label, Loading, Row, Screen } from '../
 import { t } from '../i18n';
 import { useUserId } from '../lib/auth';
 import { categoryEmoji, categoryIndex } from '../lib/categories';
+import { paymentMethodEmoji } from '../lib/payment-methods';
 import { confirm } from '../lib/confirm';
 import { setMyCategoryOverride } from '../lib/api';
 import { friendlyError } from '../lib/errors';
@@ -22,6 +23,7 @@ import {
   useGroup,
   useInvalidateCategories,
   useMyCategoryOverride,
+  usePaymentMethods,
   useRefreshAll,
 } from '../lib/queries';
 
@@ -32,6 +34,7 @@ export default function ExpenseDetailScreen() {
   const expense = useExpense(id);
   const group = useGroup(expense.data?.group_id ?? '');
   const categories = useCategories();
+  const paymentMethods = usePaymentMethods();
   const del = useDeleteExpense();
   const refreshAll = useRefreshAll();
   const override = useMyCategoryOverride(id, userId);
@@ -70,6 +73,8 @@ export default function ExpenseDetailScreen() {
   const index = categoryIndex(categories.data ?? []);
   const category = e.category_id ? index.byId.get(e.category_id) : undefined;
   const isPersonal = g?.kind === 'personal';
+  // Mi medio de pago (privado): solo aparece si lo cargué.
+  const method = e.my_payment_method_id ? paymentMethods.data?.find((m) => m.id === e.my_payment_method_id) : undefined;
   const [y, mo, d] = e.spent_at.split('-').map(Number);
   const date = new Date(y!, mo! - 1, d!).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -108,6 +113,7 @@ export default function ExpenseDetailScreen() {
       <Card>
         <DetailRow label={t.expense.date} value={date} />
         <DetailRow label={t.expense.category} value={category?.name ?? t.ledger.uncategorized} />
+        {method ? <DetailRow label={t.expense.paymentMethod} value={`${paymentMethodEmoji(method)} ${method.name}`} /> : null}
         <DetailRow label={t.expense.group} value={isPersonal ? t.common.personal : (g?.name ?? '…')} />
         {!isPersonal ? (
           <DetailRow

@@ -6,6 +6,7 @@ export const keys = {
   groups: ['groups'] as const,
   group: (id: string) => ['groups', id] as const,
   categories: ['categories'] as const,
+  paymentMethods: ['payment-methods'] as const,
   expenses: (groupId: string) => ['expenses', groupId] as const,
   balances: (groupId?: string) => ['balances', groupId ?? 'all'] as const,
   ledger: (from: string, to: string) => ['ledger', from, to] as const,
@@ -20,6 +21,8 @@ export const useGroups = () => useQuery({ queryKey: keys.groups, queryFn: api.fe
 export const useGroup = (id: string) => useQuery({ queryKey: keys.group(id), queryFn: () => api.fetchGroup(id) });
 export const useCategories = () =>
   useQuery({ queryKey: keys.categories, queryFn: api.fetchCategories, staleTime: 60 * 60 * 1000 });
+export const usePaymentMethods = () =>
+  useQuery({ queryKey: keys.paymentMethods, queryFn: api.fetchPaymentMethods, staleTime: 60 * 60 * 1000 });
 export const useGroupExpenses = (groupId: string) =>
   useQuery({ queryKey: keys.expenses(groupId), queryFn: () => api.fetchGroupExpenses(groupId) });
 export const useBalances = (groupId?: string) =>
@@ -40,6 +43,13 @@ export function useInvalidateCategories() {
       qc.invalidateQueries({ queryKey: ['ledger'] }),
       qc.invalidateQueries({ queryKey: ['override'] }),
     ]);
+}
+
+/** Tras cambiar medios de pago: refrescar la lista y el registro personal. */
+export function useInvalidatePaymentMethods() {
+  const qc = useQueryClient();
+  return () =>
+    Promise.all([qc.invalidateQueries({ queryKey: keys.paymentMethods }), qc.invalidateQueries({ queryKey: ['ledger'] })]);
 }
 
 export const useSettlements = (groupId: string) =>

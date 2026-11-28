@@ -147,3 +147,14 @@ describe('splitPreview / fillRemaining', () => {
     expect(p.perMember).toEqual({ ana: 6000, vos: 3000 });
   });
 });
+
+describe('medio de pago', () => {
+  it('por defecto no hay ninguno elegido y viaja en el payload si se elige', () => {
+    const base = { ...initialFormState(personal, 'yo', '2026-11-28'), amountText: '1000', description: 'Nafta' };
+    expect(base.paymentMethodId).toBeNull();
+    const sin = buildExpensePayload(base, personal);
+    expect(sin.ok && sin.payload.payment_method_id).toBeNull();
+    const con = buildExpensePayload({ ...base, paymentMethodId: 'pm-credito' }, personal);
+    expect(con.ok && con.payload.payment_method_id).toBe('pm-credito');
+  });
+});
