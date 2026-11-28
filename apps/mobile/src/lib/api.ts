@@ -7,6 +7,7 @@ import type {
   Group,
   GroupKind,
   LedgerRow,
+  PaymentMethod,
   Profile,
   SaveExpensePayload,
   SettlementRow,
@@ -42,15 +43,19 @@ export async function fetchCategories(): Promise<Category[]> {
 }
 
 const EXPENSE_FIELDS =
-  'id, group_id, description, amount_minor, currency, spent_at, category_id, split_type, created_by, created_at, expense_payers(member_id, amount_minor), expense_shares(member_id, amount_minor, split_value), expense_receipts(path)';
+  'id, group_id, description, amount_minor, currency, spent_at, category_id, split_type, created_by, created_at, expense_payers(member_id, amount_minor), expense_shares(member_id, amount_minor, split_value), expense_receipts(path), expense_payment_methods(payment_method_id)';
 
 /** PostgREST devuelve bigint como string: normalizamos a number. */
 function normalizeExpense(e: ExpenseRow): ExpenseRow {
   // Relación 1 a 1: PostgREST la devuelve como objeto, pero aceptamos también lista.
   const r = e.expense_receipts as unknown;
   const receipt = Array.isArray(r) ? (r[0] ?? null) : (r ?? null);
+  // Medio de pago: RLS devuelve solo el mío (0 o 1 fila).
+  const { expense_payment_methods: pm, ...rest } = e as ExpenseRow & { expense_payment_methods?: unknown };
+  const method = (Array.isArray(pm) ? pm[0] : pm) as { payment_method_id: string } | null | undefined;
   return {
-    ...e,
+    ...rest,
+    my_payment_method_id: method?.payment_method_id ?? null,
     expense_receipts: receipt as ExpenseRow['expense_receipts'],
     amount_minor: Number(e.amount_minor),
     expense_payers: e.expense_payers.map((p) => ({ ...p, amount_minor: Number(p.amount_minor) })),
@@ -105,7 +110,12 @@ export async function fetchLedger(from: string, to: string): Promise<LedgerRow[]
       .order('spent_at', { ascending: false })
       .order('created_at', { ascending: false }),
   ) as LedgerRow[];
-  return rows.map((r) => ({ ...r, consumed_minor: Number(r.consumed_minor), paid_minor: Number(r.paid_minor) }));
+  return rows.map((r) => ({
+    ...r,
+    consumed_minor: Number(r.consumed_minor),
+    paid_minor: Number(r.paid_minor),
+    payment_method_id: r.payment_method_id ?? null,
+  }));
 }
 
 export async function saveExpense(payload: SaveExpensePayload): Promise<string> {
@@ -244,6 +254,27 @@ export async function createCategory(input: { ownerId: string; name: string; ico
 
 export async function updateCategory(id: string, patch: { name?: string; icon?: string | null; archived_at?: string | null }) {
   unwrap(await supabase.from('categories').update(patch).eq('id', id));
+}
+
+export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
+  return unwrap(
+    await supabase
+      .from('payment_methods')
+      // Incluye archivados: los gastos viejos los siguen mostrando (el selector los oculta).
+      .select('id, owner_id, system_key, name, icon, sort_order, archived_at')
+      .order('sort_order')
+      .order('name'),
+  ) as PaymentMethod[];
+}
+
+export async function createPaymentMethod(input: { ownerId: string; name: string; icon: string | null }) {
+  unwrap(
+    await supabase.from('payment_methods').insert({ owner_id: input.ownerId, name: input.name, icon: input.icon, sort_order: 500 }),
+  );
+}
+
+export async function updatePaymentMethod(id: string, patch: { name?: string; icon?: string | null; archived_at?: string | null }) {
+  unwrap(await supabase.from('payment_methods').update(patch).eq('id', id));
 }
 
 /** Mi categoría privada para mi parte de un gasto compartido (null = la del grupo). */

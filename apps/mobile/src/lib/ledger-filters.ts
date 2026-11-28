@@ -7,7 +7,12 @@ export interface LedgerFilter {
   kind: LedgerKind;
   /** Categoría de primer nivel ('none' = sin categoría). */
   rootCategoryId: string | null;
+  /** Medio de pago ('none' = sin especificar). Opcional: ausente = todos. */
+  paymentMethodId?: string | null;
 }
+
+/** Clave del medio de pago de una fila para agrupar ('none' = sin especificar). */
+export const paymentMethodKey = (r: LedgerRow): string => r.payment_method_id ?? 'none';
 
 /** Normaliza para buscar sin importar mayúsculas ni tildes ("cafe" encuentra "Café"). */
 export function normalize(text: string): string {
@@ -30,6 +35,7 @@ export function filterLedger(
     if (filter.kind === 'personal' && !r.is_personal) return false;
     if (filter.kind === 'shared' && r.is_personal) return false;
     if (filter.rootCategoryId && rootCategoryOf(r.category_id, byId) !== filter.rootCategoryId) return false;
+    if (filter.paymentMethodId && paymentMethodKey(r) !== filter.paymentMethodId) return false;
     if (q) {
       const category = r.category_id ? (byId.get(r.category_id)?.name ?? '') : '';
       const haystack = normalize(`${r.description} ${r.group_name} ${category}`);
@@ -54,11 +60,30 @@ export function compareByCategory(
   currency: string,
   byId: ReadonlyMap<string, Category>,
 ): { total: CategoryComparison; categories: CategoryComparison[] } {
+  return compareBy(current, previous, currency, (r) => rootCategoryOf(r.category_id, byId));
+}
+
+/** Consumo por medio de pago: este mes vs. el anterior, en una moneda. */
+export function compareByPaymentMethod(
+  current: readonly LedgerRow[],
+  previous: readonly LedgerRow[],
+  currency: string,
+): { total: CategoryComparison; categories: CategoryComparison[] } {
+  return compareBy(current, previous, currency, paymentMethodKey);
+}
+
+/** Consumo agrupado por una clave cualquiera, ordenado de mayor a menor este mes. */
+export function compareBy(
+  current: readonly LedgerRow[],
+  previous: readonly LedgerRow[],
+  currency: string,
+  keyOf: (r: LedgerRow) => string,
+): { total: CategoryComparison; categories: CategoryComparison[] } {
   const sum = (rows: readonly LedgerRow[]) => {
     const map = new Map<string, number>();
     for (const r of rows) {
       if (r.currency !== currency) continue;
-      const key = rootCategoryOf(r.category_id, byId);
+      const key = keyOf(r);
       map.set(key, (map.get(key) ?? 0) + r.consumed_minor);
     }
     return map;

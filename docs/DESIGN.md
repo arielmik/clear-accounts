@@ -134,6 +134,7 @@ Detalles relevantes:
 - **Montos en enteros (centavos)**. Nunca `float` para plata. Los redondeos se asignan con el método del resto mayor para que `Σ partes = monto` siempre.
 - **Invariantes**: `Σ payers = amount` y `Σ shares = amount` en todo gasto, y todos los participantes pertenecen al grupo del gasto. Se validan en el cliente (`packages/core`) **y** en la base (constraint triggers diferidos). La base es la autoridad final.
 - **`share_category_overrides`**: el grupo cargó "Supermercado", pero vos querés verlo como "Hogar". Cada usuario recategoriza *su parte* sin tocar el gasto del grupo. Está en una tabla aparte con RLS de solo-dueño: nadie más la ve.
+- **`payment_methods` + `expense_payment_methods`**: el "Cómo" de un gasto (efectivo, débito, una tarjeta propia…). Como las categorías: hay medios del sistema y cada usuario crea los suyos. Es opcional y **privado**: cada usuario guarda el suyo por gasto en una tabla aparte (RLS solo-dueño), así en un gasto de grupo nadie ve con qué pagaste. `save_expense` lo recibe en `payment_method_id` y `my_ledger` lo expone para el gráfico "Por medio de pago" de Mis gastos.
 - **Escrituras atómicas**: un gasto se guarda con la RPC `save_expense(payload)` (gasto + pagadores + partes en una transacción).
 - **Miembros sin cuenta**: se puede agregar a alguien al grupo solo con nombre/email y que se una después; sus partes quedan vinculadas al `member_id`.
 - **Borrado lógico** (`deleted_at`) + `activity_log` automático: en gastos compartidos, "¿quién cambió esto?" es una pregunta que va a aparecer.

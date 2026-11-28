@@ -9,6 +9,8 @@ export interface ExpenseFormState {
   amountText: string;
   description: string;
   categoryId: string | null;
+  /** Medio de pago (opcional, privado de quien carga). null = sin especificar. */
+  paymentMethodId: string | null;
   spentAt: string;
   payerMemberId: string;
   splitType: SplitType;
@@ -23,6 +25,7 @@ export function initialFormState(group: Group, myMemberId: string, today: string
     amountText: '',
     description: '',
     categoryId: null,
+    paymentMethodId: null,
     spentAt: today,
     payerMemberId: myMemberId,
     splitType: 'equal',
@@ -44,6 +47,7 @@ export function formStateFromExpense(expense: ExpenseRow, group: Group): Expense
     amountText: minorToInput(expense.amount_minor, expense.currency),
     description: expense.description,
     categoryId: expense.category_id,
+    paymentMethodId: expense.my_payment_method_id ?? null,
     spentAt: expense.spent_at,
     payerMemberId: expense.expense_payers[0]?.member_id ?? '',
     splitType: group.kind === 'personal' ? 'equal' : expense.split_type,
@@ -140,6 +144,7 @@ export function buildExpensePayload(state: ExpenseFormState, group: Group): Buil
         currency: group.currency,
         spent_at: state.spentAt,
         category_id: state.categoryId,
+        payment_method_id: state.paymentMethodId,
         split_type: group.kind === 'personal' ? 'exact' : state.splitType,
         payers: [{ member_id: state.payerMemberId, amount_minor: amount }],
         shares: shares

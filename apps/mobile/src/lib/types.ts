@@ -32,6 +32,17 @@ export interface Category {
   archived_at: string | null;
 }
 
+/** Medio de pago ("Cómo"): del sistema (owner_id null) o propio. */
+export interface PaymentMethod {
+  id: string;
+  owner_id: string | null;
+  system_key: string | null;
+  name: string;
+  icon: string | null;
+  sort_order: number;
+  archived_at: string | null;
+}
+
 export interface ExpenseRow {
   id: string;
   group_id: string;
@@ -47,6 +58,8 @@ export interface ExpenseRow {
   expense_shares: { member_id: string; amount_minor: number; split_value: number | null }[];
   /** Foto del ticket, si tiene. */
   expense_receipts?: { path: string } | null;
+  /** MI medio de pago para este gasto (privado: RLS devuelve solo el propio). */
+  my_payment_method_id?: string | null;
 }
 
 export interface LedgerRow {
@@ -61,6 +74,8 @@ export interface LedgerRow {
   paid_minor: number;
   category_id: string | null;
   created_at: string;
+  /** Mi medio de pago (null = sin especificar). */
+  payment_method_id: string | null;
 }
 
 export interface BalanceRow {
@@ -81,6 +96,8 @@ export interface SaveExpensePayload {
   split_type: SplitType;
   payers: { member_id: string; amount_minor: number }[];
   shares: { member_id: string; amount_minor: number; split_value: number | null }[];
+  /** Mi medio de pago (null lo quita). */
+  payment_method_id?: string | null;
 }
 
 export interface Profile {

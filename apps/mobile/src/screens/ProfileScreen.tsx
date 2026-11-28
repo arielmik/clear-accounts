@@ -230,6 +230,12 @@ export default function ProfileScreen() {
           value={t.profile.myCategoriesHint}
           onPress={() => router.push('/profile/categories')}
         />
+        <SettingsRow
+          icon="card-outline"
+          title={t.profile.myPaymentMethods}
+          value={t.profile.myPaymentMethodsHint}
+          onPress={() => router.push('/profile/payment-methods')}
+        />
         {pushEnabled !== null ? (
           <SettingsRow
             icon="notifications-outline"

@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import type { ScrollViewInstance, TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MemberAvatar } from '../components/Avatar';
 import { CategoryPicker } from '../components/CategoryPicker';
@@ -27,7 +28,8 @@ import { setExpenseReceipt } from '../lib/api';
 import { groupColorKey, groupColorValue } from '../lib/group-colors';
 import { pickReceipt, removeStoredImage, uploadReceipt } from '../lib/images';
 import { formatAmountTyping, formatMoney, parseAmount } from '../lib/money';
-import { useCategories, useExpense, useGroups, useSaveExpense } from '../lib/queries';
+import { paymentMethodEmoji, selectablePaymentMethods } from '../lib/payment-methods';
+import { useCategories, useExpense, useGroups, usePaymentMethods, useSaveExpense } from '../lib/queries';
 import type { ExpenseRow, Group, Member, SplitType } from '../lib/types';
 
 const SPLIT_TYPES: SplitType[] = ['equal', 'exact', 'percent', 'shares'];
@@ -87,7 +89,7 @@ function NewExpense({ groupId: initialGroupId }: { groupId?: string | undefined 
 /** Ticket elegido en el formulario: el ya guardado o uno nuevo (uri local, se sube al guardar). */
 type ReceiptState = { path: string } | { uri: string } | null;
 
-type Carry = Pick<ExpenseFormState, 'amountText' | 'description' | 'categoryId' | 'spentAt'> & { receipt?: ReceiptState };
+type Carry = Pick<ExpenseFormState, 'amountText' | 'description' | 'categoryId' | 'paymentMethodId' | 'spentAt'> & { receipt?: ReceiptState };
 
 function ExpenseForm({
   group,
@@ -114,6 +116,8 @@ function ExpenseForm({
       : { ...initialFormState(group, myMemberId, isoDate()), ...carry },
   );
   const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const descriptionRef = useRef<TextInputInstance>(null);
   const [pickingGroup, setPickingGroup] = useState(false);
   const savedReceiptPath = expense?.expense_receipts?.path ?? null;
   const [receipt, setReceipt] = useState<ReceiptState>(savedReceiptPath ? { path: savedReceiptPath } : (carry?.receipt ?? null));
@@ -162,6 +166,13 @@ function ExpenseForm({
     if (c?.owner_id) setForm((f) => ({ ...f, categoryId: null }));
   }, [isPersonal, form.categoryId, categories.data]);
 
+  // "Cómo": solo si pagué yo (es MI medio de pago; si pagó otro, no aplica).
+  const paymentMethods = usePaymentMethods();
+  const iPaid = isPersonal || form.payerMemberId === myMemberId;
+  const methodOptions = selectablePaymentMethods(paymentMethods.data ?? [], form.paymentMethodId);
+  const choosePayer = (id: string) =>
+    setForm((f) => ({ ...f, payerMemberId: id, paymentMethodId: id === myMemberId ? f.paymentMethodId : null }));
+
   const amount = parseAmount(form.amountText, group.currency) ?? 0;
   const nameOf = (id: string) => {
     const m = members.find((x) => x.id === id);
@@ -184,7 +195,15 @@ function ExpenseForm({
 
   async function submit() {
     const result = buildExpensePayload(form, group);
-    if (!result.ok) return setError(result.error);
+    if (!result.ok) {
+      setError(result.error);
+      // Falta la descripción: llevar al usuario directo al campo.
+      if (result.error === t.expense.missingDescription) {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+        descriptionRef.current?.focus();
+      }
+      return;
+    }
     try {
       const id = await save.mutateAsync(result.payload);
       setSavingReceipt(true);
@@ -198,6 +217,7 @@ function ExpenseForm({
   }
 
   const preview = splitPreview(form, group, amount);
+  const descriptionMissing = error === t.expense.missingDescription;
   const isEdit = !!expense;
   const groupBg = groupColorValue(groupColorKey(group), theme);
   const groupLabel = (g: Group) => (g.kind === 'personal' ? `👤 ${t.common.personal}` : g.name);
@@ -208,7 +228,7 @@ function ExpenseForm({
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: groupBg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
+        <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
           {/* Encabezado: cerrar + grupo (tocando se elige otro). */}
           <Row style={{ justifyContent: 'space-between', paddingHorizontal: space.lg, paddingTop: space.sm }}>
             <Pressable accessibilityRole="button" accessibilityLabel={t.common.cancel} onPress={() => router.back()} hitSlop={12}>
@@ -248,6 +268,7 @@ function ExpenseForm({
                           amountText: form.amountText,
                           description: form.description,
                           categoryId: form.categoryId,
+                          paymentMethodId: form.paymentMethodId,
                           spentAt: form.spentAt,
                           receipt,
                         });
@@ -292,20 +313,45 @@ function ExpenseForm({
               />
             </Row>
             <Text style={{ color: theme.onGroup, opacity: 0.6, fontSize: 12, fontWeight: '700' }}>{group.currency}</Text>
-            {/* 2. Descripción */}
-            <TextInput
-              accessibilityLabel={t.expense.description}
-              value={form.description}
-              onChangeText={(v) => set('description', v)}
-              placeholder={t.expense.descriptionPlaceholder}
-              placeholderTextColor="rgba(22,19,31,0.45)"
-              returnKeyType="done"
-              style={[{ color: theme.onGroup, fontSize: 18, fontWeight: '600', textAlign: 'center', alignSelf: 'stretch', paddingVertical: space.sm }, noOutline]}
-            />
+          </View>
+
+          {/* 2. Descripción: un campo bien visible (antes se confundía con las categorías). */}
+          <View style={{ paddingHorizontal: space.lg, paddingTop: space.lg, gap: 6 }}>
+            <Pressable
+              accessibilityRole="none"
+              onPress={() => descriptionRef.current?.focus()}
+              style={[
+                styles.descriptionBox,
+                { borderColor: descriptionMissing ? theme.negative : 'rgba(22,19,31,0.14)' },
+              ]}
+            >
+              <Ionicons name="create-outline" size={24} color={theme.onGroup} style={{ opacity: 0.7 }} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ color: theme.onGroup, opacity: 0.7, fontSize: 13, fontWeight: '800' }}>{t.expense.descriptionLabel}</Text>
+                <TextInput
+                  ref={descriptionRef}
+                  accessibilityLabel={t.expense.descriptionLabel}
+                  value={form.description}
+                  onChangeText={(v) => set('description', v)}
+                  placeholder={t.expense.descriptionPlaceholder}
+                  placeholderTextColor="rgba(22,19,31,0.4)"
+                  returnKeyType="done"
+                  maxLength={140}
+                  style={[{ color: theme.onGroup, fontSize: 20, fontWeight: '700', padding: 0 }, noOutline]}
+                />
+              </View>
+            </Pressable>
+            {descriptionMissing ? (
+              <Row style={{ gap: 6, paddingHorizontal: space.xs }}>
+                <Ionicons name="alert-circle" size={20} color={theme.negative} />
+                <Text style={{ color: theme.negative, fontSize: 16, fontWeight: '800' }}>{error}</Text>
+              </Row>
+            ) : null}
           </View>
 
           {/* 3. Categoría (en grupos, solo las del sistema: las propias no las verían los demás) */}
-          <View style={{ gap: space.sm, paddingBottom: space.lg }}>
+          <View style={{ gap: space.sm, paddingTop: space.lg, paddingBottom: space.lg }}>
+            <Text style={[styles.sectionLabel, { color: theme.onGroup }]}>{t.expense.category}</Text>
             <CategoryPicker value={form.categoryId} onChange={(id) => set('categoryId', id)} systemOnly={!isPersonal} variant="tiles" />
           </View>
 
@@ -321,7 +367,7 @@ function ExpenseForm({
                       member={m}
                       name={nameOf(m.id)}
                       selected={form.payerMemberId === m.id}
-                      onPress={() => set('payerMemberId', m.id)}
+                      onPress={() => choosePayer(m.id)}
                     />
                   ))}
                 </ScrollView>
@@ -421,6 +467,26 @@ function ExpenseForm({
             <Label>{t.expense.when}</Label>
             <DateField value={form.spentAt} onChange={(v) => set('spentAt', v)} />
 
+            {/* Cómo: medio de pago opcional y privado; nada elegido por defecto. Tocar de nuevo lo quita. */}
+            {iPaid && methodOptions.length > 0 ? (
+              <>
+                <Row style={{ gap: space.sm, alignItems: 'baseline' }}>
+                  <Label>{t.expense.paymentMethod}</Label>
+                  <Text style={{ color: theme.muted, fontSize: 12 }}>{t.expense.paymentMethodOptional}</Text>
+                </Row>
+                <ChipRow>
+                  {methodOptions.map((m) => (
+                    <Chip
+                      key={m.id}
+                      label={`${paymentMethodEmoji(m)} ${m.name}`}
+                      selected={form.paymentMethodId === m.id}
+                      onPress={() => set('paymentMethodId', form.paymentMethodId === m.id ? null : m.id)}
+                    />
+                  ))}
+                </ChipRow>
+              </>
+            ) : null}
+
             {/* Ticket: foto opcional, con la cámara o de la galería. */}
             <Label>{t.expense.receipt}</Label>
             {receipt ? (
@@ -440,7 +506,12 @@ function ExpenseForm({
               </ChipRow>
             )}
 
-            {error ? <Text style={{ color: theme.negative }}>{error}</Text> : null}
+            {error ? (
+              <View accessibilityRole="alert" style={[styles.errorBox, { backgroundColor: theme.negativeSoft, borderColor: theme.negative }]}>
+                <Ionicons name="alert-circle" size={24} color={theme.negative} />
+                <Text style={{ color: theme.negative, fontSize: 16, fontWeight: '800', flex: 1 }}>{error}</Text>
+              </View>
+            ) : null}
             <View style={{ marginTop: 'auto', paddingTop: space.sm }}>
               <Button title={t.common.save} onPress={submit} loading={save.isPending || savingReceipt} />
             </View>
@@ -519,6 +590,31 @@ const styles = StyleSheet.create({
     padding: space.lg,
     paddingBottom: space.xl,
     gap: space.md,
+  },
+  descriptionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: 14,
+    paddingHorizontal: space.lg,
+    borderRadius: 18,
+    borderWidth: 2,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+  },
+  sectionLabel: {
+    paddingHorizontal: space.lg,
+    fontSize: 13,
+    fontWeight: '800',
+    opacity: 0.7,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
   },
   fill: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 13, paddingVertical: 10, alignItems: 'center' },
 });
