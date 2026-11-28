@@ -44,8 +44,7 @@
     "test": "vitest run",
     "lint": "expo lint",
     "build:android": "npx eas-cli@latest build --platform android --profile preview",
-    "publish": "npx eas-cli@latest update --channel preview --environment preview --platform android",
-    "deploy:web": "expo export --platform web && npx eas-cli@latest deploy --prod"
+    "publish": "npx eas-cli@latest update --channel preview --environment preview --platform android"
   },
   "private": true
 }

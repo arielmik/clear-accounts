@@ -82,8 +82,11 @@ La app también funciona en el navegador: https://clear-accounts.expo.app
 Para publicar una versión nueva (usa las variables del `.env` local, que apuntan a Supabase de producción):
 
 ```bash
-npm run deploy:web
+npx expo export --platform web && npx eas-cli@latest deploy --prod
 ```
+
+(No es un script de `package.json` a propósito: los scripts entran en la huella de las
+actualizaciones OTA, y uno nuevo deja a los APK instalados sin recibirlas.)
 
 En web no hay notificaciones push ni cámara (el ticket se elige de la galería).
 
